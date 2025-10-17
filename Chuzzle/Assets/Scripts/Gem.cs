@@ -19,9 +19,17 @@ public class Gem : MonoBehaviour
     private bool isMoving = false; // 是否正在移动
     private bool hasVisualOffset = false; // 是否有视觉偏移
     
+    // 多米诺回弹动画
+    private bool isDominoAnimating = false; // 是否正在多米诺动画
+    private float dominoDelay = 0f; // 多米诺延迟
+    private float dominoTimer = 0f; // 多米诺计时器
+    private float dominoDuration = 0.2f; // 多米诺动画持续时间
+    private Vector3 dominoStartOffset; // 动画起始偏移
+    
     // 影子宝石（用于循环显示）
     private GameObject shadowGem; // 影子宝石对象
     private SpriteRenderer shadowRenderer; // 影子的渲染器
+    private Vector3 shadowStartPos; // 影子起始位置（用于动画）
 
     void Start()
     {
@@ -31,8 +39,39 @@ public class Gem : MonoBehaviour
 
     void Update()
     {
+        // 多米诺回弹动画优先级最高
+        if (isDominoAnimating)
+        {
+            // 等待延迟
+            if (dominoDelay > 0)
+            {
+                dominoDelay -= Time.deltaTime;
+                return;
+            }
+            
+            // 更新计时器
+            dominoTimer += Time.deltaTime;
+            float progress = Mathf.Clamp01(dominoTimer / dominoDuration);
+            
+            // 使用EaseOut曲线
+            float easedProgress = 1 - Mathf.Pow(1 - progress, 3);
+            
+            // 插值偏移：从起始偏移回到0
+            visualOffset = Vector3.Lerp(dominoStartOffset, Vector3.zero, easedProgress);
+            transform.position = basePosition + visualOffset;
+            
+            // 动画完成
+            if (progress >= 1f)
+            {
+                isDominoAnimating = false;
+                hasVisualOffset = false;
+                visualOffset = Vector3.zero;
+                transform.position = basePosition;
+                // 注意：影子由AnimateShadow协程单独处理
+            }
+        }
         // 如果有视觉偏移，应用偏移
-        if (hasVisualOffset)
+        else if (hasVisualOffset)
         {
             transform.position = basePosition + visualOffset;
         }
@@ -145,16 +184,80 @@ public class Gem : MonoBehaviour
     }
 
     /// <summary>
-    /// 重置视觉偏移
+    /// 重置视觉偏移（立即）
     /// </summary>
     public void ResetVisualOffset()
     {
         visualOffset = Vector3.zero;
         hasVisualOffset = false;
+        isDominoAnimating = false;
         transform.position = basePosition;
         
         // 同时销毁影子
         DestroyShadow();
+    }
+
+    /// <summary>
+    /// 开始多米诺回弹动画
+    /// </summary>
+    public void StartDominoAnimation(float delay = 0f, float shadowDelay = 0f)
+    {
+        // 保存当前状态
+        dominoStartOffset = visualOffset;
+        dominoDelay = delay;
+        dominoTimer = 0f;
+        isDominoAnimating = true;
+        hasVisualOffset = false; // 不再接受新的拖动偏移
+        
+        // 保存影子的起始位置（如果有影子）
+        if (shadowGem != null)
+        {
+            shadowStartPos = shadowGem.transform.position - visualOffset;
+            // 影子使用单独的延迟
+            StartCoroutine(AnimateShadow(shadowDelay));
+        }
+    }
+
+    /// <summary>
+    /// 影子的独立动画（可以有不同的延迟）
+    /// </summary>
+    private System.Collections.IEnumerator AnimateShadow(float shadowDelay)
+    {
+        // 等待影子的延迟
+        if (shadowDelay > 0)
+        {
+            yield return new WaitForSeconds(shadowDelay);
+        }
+        
+        float shadowTimer = 0f;
+        float shadowDuration = dominoDuration;
+        
+        while (shadowTimer < shadowDuration && shadowGem != null)
+        {
+            shadowTimer += Time.deltaTime;
+            float progress = Mathf.Clamp01(shadowTimer / shadowDuration);
+            float easedProgress = 1 - Mathf.Pow(1 - progress, 3);
+            
+            Vector3 shadowCurrentOffset = Vector3.Lerp(dominoStartOffset, Vector3.zero, easedProgress);
+            shadowGem.transform.position = shadowStartPos + shadowCurrentOffset;
+            
+            yield return null;
+        }
+        
+        // 影子动画完成，销毁影子
+        if (shadowGem != null)
+        {
+            Destroy(shadowGem);
+            shadowGem = null;
+        }
+    }
+
+    /// <summary>
+    /// 检查是否正在多米诺动画
+    /// </summary>
+    public bool IsDominoAnimating()
+    {
+        return isDominoAnimating;
     }
 
     /// <summary>

@@ -179,20 +179,22 @@ public class InputController : MonoBehaviour
         
         Debug.Log($"结束拖动，总偏移: {totalDragOffset:F2}, 应该移动: {movesToConfirm} 格");
 
-        // 如果拖动距离足够，确认移动
+        // 不管是否确认移动，都先用多米诺动画回到基础位置
+        // 然后再决定是否执行逻辑移动
         if (movesToConfirm > 0)
         {
-            // 执行实际的移动
-            for (int i = 0; i < movesToConfirm; i++)
-            {
-                PerformMove();
-            }
+            // 拖动距离足够，先多米诺动画，然后确认移动
+            Debug.Log($"拖动距离足够，先多米诺回弹，然后移动 {movesToConfirm} 格");
+            DominoBackAnimation();
+            
+            // 等多米诺动画完成后再执行逻辑移动
+            StartCoroutine(PerformMoveAfterDomino(movesToConfirm));
         }
         else
         {
-            // 拖动距离不够，回弹
-            Debug.Log("拖动距离不足，回弹");
-            ResetVisualOffset();
+            // 拖动距离不够，只做多米诺回弹
+            Debug.Log("拖动距离不足，多米诺回弹");
+            DominoBackAnimation();
         }
         
         isDragging = false;
@@ -203,7 +205,7 @@ public class InputController : MonoBehaviour
     }
 
     /// <summary>
-    /// 重置视觉偏移
+    /// 重置视觉偏移（立即）
     /// </summary>
     private void ResetVisualOffset()
     {
@@ -223,15 +225,55 @@ public class InputController : MonoBehaviour
     }
 
     /// <summary>
+    /// 多米诺回弹动画
+    /// </summary>
+    private void DominoBackAnimation()
+    {
+        if (selectedGem == null) return;
+
+        switch (dragDirection)
+        {
+            case DragDirection.Left:
+                boardManager.DominoBackRow(selectedGem.row, false); // 向左拖，从右边开始回弹
+                Debug.Log("多米诺回弹：整行从右到左");
+                break;
+            case DragDirection.Right:
+                boardManager.DominoBackRow(selectedGem.row, true); // 向右拖，从左边开始回弹
+                Debug.Log("多米诺回弹：整行从左到右");
+                break;
+            case DragDirection.Up:
+                boardManager.DominoBackColumn(selectedGem.column, true); // 向上拖，从下边开始回弹
+                Debug.Log("多米诺回弹：整列从下到上");
+                break;
+            case DragDirection.Down:
+                boardManager.DominoBackColumn(selectedGem.column, false); // 向下拖，从上边开始回弹
+                Debug.Log("多米诺回弹：整列从上到下");
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 等待多米诺动画完成后执行移动
+    /// </summary>
+    private System.Collections.IEnumerator PerformMoveAfterDomino(int movesToConfirm)
+    {
+        // 等待多米诺动画完成
+        // 总时长 = 最后一个宝石的延迟 + 动画持续时间
+        float totalDuration = (boardManager.Columns - 1) * 0.05f + 0.2f + 0.1f; // 多加0.1秒缓冲
+        yield return new WaitForSeconds(totalDuration);
+
+        // 现在执行逻辑移动
+        for (int i = 0; i < movesToConfirm; i++)
+        {
+            PerformMove();
+        }
+    }
+
+    /// <summary>
     /// 执行移动（确认移动，更新逻辑位置）
     /// </summary>
     private void PerformMove()
     {
-        if (selectedGem == null) return;
-
-        // 先重置视觉偏移
-        ResetVisualOffset();
-
         // 执行实际的逻辑移动
         switch (dragDirection)
         {

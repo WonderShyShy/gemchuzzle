@@ -15,6 +15,7 @@ public class BoardManager : MonoBehaviour
 
     // 公开属性，供InputController访问
     public float GemSpacing => gemSpacing;
+    public int Columns => columns;
 
     [Header("宝石预制体")]
     [SerializeField] private GameObject bluePrefab;
@@ -151,13 +152,83 @@ public class BoardManager : MonoBehaviour
         {
             for (int col = 0; col < columns; col++)
             {
-                if (gems[row, col] != null && (gems[row, col].IsMoving() || gems[row, col].HasVisualOffset()))
+                if (gems[row, col] != null && (gems[row, col].IsMoving() || gems[row, col].HasVisualOffset() || gems[row, col].IsDominoAnimating()))
                 {
                     return true;
                 }
             }
         }
         return false;
+    }
+
+    /// <summary>
+    /// 整行多米诺回弹（一个接一个回到原位）
+    /// </summary>
+    public void DominoBackRow(int row, bool movingRight)
+    {
+        if (row < 0 || row >= rows) return;
+
+        float delayIncrement = 0.05f; // 每个宝石的延迟
+
+        for (int col = 0; col < columns; col++)
+        {
+            if (gems[row, col] != null)
+            {
+                // 根据移动方向确定多米诺顺序和影子位置
+                float gemDelay;
+                float shadowDelay;
+                
+                if (movingRight)
+                {
+                    // 向右拖动：影子在左边（最先开始），本体从左到右
+                    gemDelay = (col + 1) * delayIncrement; // 本体延迟（+1因为影子占了第0个位置）
+                    shadowDelay = 0f; // 影子第一个开始
+                }
+                else
+                {
+                    // 向左拖动：影子在右边（最先开始），本体从右到左
+                    gemDelay = (columns - col) * delayIncrement; // 本体延迟
+                    shadowDelay = 0f; // 影子第一个开始
+                }
+                
+                gems[row, col].StartDominoAnimation(gemDelay, shadowDelay);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 整列多米诺回弹（一个接一个回到原位）
+    /// </summary>
+    public void DominoBackColumn(int col, bool movingUp)
+    {
+        if (col < 0 || col >= columns) return;
+
+        float delayIncrement = 0.05f; // 每个宝石的延迟
+
+        for (int row = 0; row < rows; row++)
+        {
+            if (gems[row, col] != null)
+            {
+                // 根据移动方向确定多米诺顺序和影子位置
+                float gemDelay;
+                float shadowDelay;
+                
+                if (movingUp)
+                {
+                    // 向上拖动：影子在下边（最先开始），本体从下到上
+                    gemDelay = (row + 1) * delayIncrement;
+                    shadowDelay = 0f;
+                }
+                else
+                {
+                    // 向下拖动：影子在上边（最先开始），本体从上到下
+                    gemDelay = (rows - row) * delayIncrement;
+                    shadowDelay = 0f;
+                }
+                
+                gems[row, col].StartDominoAnimation(gemDelay, shadowDelay);
+            }
+        }
     }
 
     /// <summary>
@@ -241,7 +312,7 @@ public class BoardManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 重置整行的视觉偏移
+    /// 重置整行的视觉偏移（立即）
     /// </summary>
     public void ResetRowVisualOffset(int row)
     {
@@ -257,7 +328,7 @@ public class BoardManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 重置整列的视觉偏移
+    /// 重置整列的视觉偏移（立即）
     /// </summary>
     public void ResetColumnVisualOffset(int col)
     {
