@@ -1,0 +1,236 @@
+=====================================================
+🎮 Chuzzle 游戏 - 完整设置指南
+=====================================================
+
+📦 项目文件清单：
+-----------------
+✅ Gem.cs - 宝石类（属性、移动动画）
+✅ BoardManager.cs - 棋盘管理器（网格生成、移动方法）
+✅ InputController.cs - 输入控制器（拖动检测）
+✅ GameManager.cs - 游戏管理器（状态管理）
+
+🔧 Unity设置步骤（按顺序操作）：
+-----------------
+
+═══════════════════════════════════════════════════
+第一步：设置宝石预制体（重要！）
+═══════════════════════════════════════════════════
+
+为每个宝石预制体添加Collider2D：
+
+1. 在Project窗口中，双击打开 Assets/Prefob/Blue.prefab
+2. 在Inspector中点击 "Add Component"
+3. 搜索并添加 "Circle Collider 2D"
+4. 调整Radius（半径）以匹配宝石大小，建议值：0.4-0.5
+5. 对其他6个预制体重复此操作：
+   - Green.prefab
+   - Orange.prefab
+   - Pink.prefab
+   - Red.prefab
+   - Write.prefab（白色）
+   - Yellow.prefab
+
+💡 提示：可以先设置一个，然后复制Collider组件到其他预制体
+
+
+═══════════════════════════════════════════════════
+第二步：设置场景（Hierarchy）
+═══════════════════════════════════════════════════
+
+1. 打开场景：Assets/Scenes/SampleScene.unity
+
+2. 创建BoardManager对象：
+   - 右键Hierarchy -> Create Empty
+   - 重命名为 "BoardManager"
+   - Add Component -> BoardManager
+   - 在Inspector中设置：
+     
+     [棋盘设置]
+     ✓ Rows: 6
+     ✓ Columns: 6
+     ✓ Gem Spacing: 1.2
+     ✓ Gem Scale: 0.15
+     ✓ Board Offset: X=-3, Y=-3
+     
+     [宝石预制体] - 依次拖入：
+     ✓ Blue Prefab: Assets/Prefob/Blue.prefab
+     ✓ Green Prefab: Assets/Prefob/Green.prefab
+     ✓ Orange Prefab: Assets/Prefob/Orange.prefab
+     ✓ Pink Prefab: Assets/Prefob/Pink.prefab
+     ✓ Red Prefab: Assets/Prefob/Red.prefab
+     ✓ White Prefab: Assets/Prefob/Write.prefab
+     ✓ Yellow Prefab: Assets/Prefob/Yellow.prefab
+
+3. 添加InputController到同一个对象：
+   - 选中BoardManager对象
+   - Add Component -> InputController
+   - 在Inspector中设置：
+     ✓ Board Manager: 拖入BoardManager对象（自己）
+     ✓ Main Camera: 拖入Main Camera（或留空自动查找）
+     ✓ Drag Threshold: 0.2
+     ✓ Move Threshold: 0.6
+
+4. 创建GameManager对象（可选）：
+   - 右键Hierarchy -> Create Empty
+   - 重命名为 "GameManager"
+   - Add Component -> GameManager
+   - 在Inspector中设置：
+     ✓ Board Manager: 拖入BoardManager对象
+     ✓ Input Controller: 拖入BoardManager对象
+
+
+═══════════════════════════════════════════════════
+第三步：检查摄像机设置
+═══════════════════════════════════════════════════
+
+选中Main Camera，在Inspector中确认：
+✓ Projection: Orthographic（正交）
+✓ Size: 5（可根据需要调整）
+✓ Position: (0, 0, -10)
+✓ Background: 选择一个深色背景（比如深蓝或黑色）
+
+
+═══════════════════════════════════════════════════
+第四步：运行测试
+═══════════════════════════════════════════════════
+
+1. 点击Play按钮▶️
+2. 你应该看到6x6的宝石网格
+3. 用鼠标拖动任意宝石：
+   - 水平拖动 = 移动整行
+   - 垂直拖动 = 移动整列
+4. 边缘宝石会循环回来
+5. 打开Console查看拖动日志
+
+
+═══════════════════════════════════════════════════
+🎮 操作说明
+═══════════════════════════════════════════════════
+
+基本操作：
+1. 点击任意宝石
+2. 保持按住并拖动
+3. 水平拖动 → 移动该宝石所在的整行
+4. 垂直拖动 → 移动该宝石所在的整列
+5. 释放鼠标完成操作
+
+拖动规则：
+- 需要拖动超过0.2单位才会判定方向
+- 需要拖动超过0.6单位（半格）才会移动
+- 可以连续拖动，每拖动一格就移动一次
+- 宝石移动中会锁定新的输入
+
+
+═══════════════════════════════════════════════════
+🎨 参数调整建议
+═══════════════════════════════════════════════════
+
+宝石大小调整：
+- Gem Scale = 0.15 → 标准大小
+- Gem Scale = 0.18 → 较大（宝石会靠得更近）
+- Gem Scale = 0.12 → 较小（间隙更大）
+
+网格间距调整：
+- Gem Spacing = 1.2 → 标准间距
+- Gem Spacing = 1.0 → 紧密排列
+- Gem Spacing = 1.5 → 稀疏排列
+
+移动速度调整（在Gem.cs中）：
+- Move Speed = 10 → 标准速度
+- Move Speed = 15 → 快速
+- Move Speed = 5 → 慢速
+
+灵敏度调整（在InputController中）：
+- Drag Threshold = 0.2 → 标准
+- Drag Threshold = 0.1 → 更灵敏（容易误触）
+- Drag Threshold = 0.3 → 不太灵敏
+
+- Move Threshold = 0.6 → 标准（半格）
+- Move Threshold = 0.4 → 更容易触发移动
+- Move Threshold = 0.8 → 需要拖更远才移动
+
+
+═══════════════════════════════════════════════════
+⚠️ 常见问题排查
+═══════════════════════════════════════════════════
+
+问题1：点击宝石没反应
+解决：
+→ 检查预制体是否添加了Collider2D
+→ 检查Collider的大小是否合适
+→ 检查摄像机是否是Orthographic
+→ 打开Console查看是否有错误
+
+问题2：拖动不流畅
+解决：
+→ 增大Gem.cs中的moveSpeed
+→ 检查是否有编译错误
+→ 确保只运行一次生成（不要重复生成）
+
+问题3：宝石太大/太小
+解决：
+→ 调整BoardManager中的Gem Scale
+→ 调整Gem Spacing以匹配
+
+问题4：移动方向不对
+解决：
+→ 更明确地朝一个方向拖动
+→ 调整Drag Threshold值
+→ 查看Scene视图中的红色拖动线
+
+问题5：看不到宝石
+解决：
+→ 检查摄像机Position和Size
+→ 检查Board Offset是否合适
+→ 检查宝石是否有SpriteRenderer
+
+
+═══════════════════════════════════════════════════
+✅ 功能清单
+═══════════════════════════════════════════════════
+
+已完成：
+✅ 6x6网格生成
+✅ 7种颜色宝石随机分布
+✅ 宝石大小自动缩放
+✅ 网格可视化辅助线
+✅ 鼠标拖动检测
+✅ 方向识别（水平/垂直）
+✅ 整行左右移动（循环）
+✅ 整列上下移动（循环）
+✅ 平滑移动动画
+✅ 移动锁定机制
+✅ 游戏状态管理
+
+待开发：
+⏭️ 匹配检测（3个以上相同颜色）
+⏭️ 消除动画和得分
+⏭️ 下落和填充系统
+⏭️ 连锁反应
+⏭️ 特效和音效
+⏭️ UI界面（分数、关卡等）
+⏭️ 关卡系统
+
+
+═══════════════════════════════════════════════════
+🎯 快速测试检查表
+═══════════════════════════════════════════════════
+
+□ 所有预制体都添加了Collider2D
+□ BoardManager已设置所有7个预制体引用
+□ InputController已关联BoardManager
+□ 摄像机是Orthographic模式
+□ 点击Play能看到6x6网格
+□ 可以用鼠标拖动宝石
+□ 水平拖动移动整行
+□ 垂直拖动移动整列
+□ 边缘宝石能循环回来
+□ Console没有红色错误信息
+
+全部打✓说明设置成功！🎉
+
+
+=====================================================
+💡 提示：保存场景后可以随时调整参数来优化体验
+=====================================================
+

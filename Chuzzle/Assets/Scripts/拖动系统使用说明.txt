@@ -1,0 +1,111 @@
+=====================================================
+🎮 Chuzzle 游戏 - 拖动系统使用说明
+=====================================================
+
+📋 新增脚本：
+-----------------
+1. InputController.cs - 输入控制器
+   - 检测鼠标拖动
+   - 识别拖动方向（水平/垂直）
+   - 执行整行/整列移动
+
+2. GameManager.cs - 游戏管理器
+   - 管理游戏状态
+   - 控制游戏流程
+
+3. BoardManager.cs - 扩展功能
+   ✅ ShiftRowLeft() - 整行左移
+   ✅ ShiftRowRight() - 整行右移
+   ✅ ShiftColumnUp() - 整列上移
+   ✅ ShiftColumnDown() - 整列下移
+   ✅ IsAnyGemMoving() - 检测宝石移动状态
+
+🔧 Unity中的设置步骤：
+-----------------
+
+步骤1：设置BoardManager（如果还没设置）
+   - 在Hierarchy中找到或创建BoardManager对象
+   - 添加BoardManager脚本并配置7个预制体
+
+步骤2：添加InputController
+   - 选中BoardManager对象（或创建新的GameObject叫"InputController"）
+   - Add Component -> InputController
+   - 在Inspector中：
+     * Board Manager: 拖入BoardManager对象
+     * Main Camera: 拖入Main Camera（通常会自动找到）
+     * Drag Threshold: 0.2（拖动检测阈值）
+     * Move Threshold: 0.6（移动确认阈值）
+
+步骤3：添加GameManager（可选，用于管理游戏状态）
+   - 创建空GameObject命名为"GameManager"
+   - Add Component -> GameManager
+   - 在Inspector中：
+     * Board Manager: 拖入BoardManager对象
+     * Input Controller: 拖入InputController对象
+
+步骤4：确保宝石有Collider2D
+   ⚠️ 重要！每个宝石预制体必须有Collider2D组件才能被点击
+   - 打开每个预制体（Blue, Green, Orange等）
+   - Add Component -> Circle Collider 2D（或Box Collider 2D）
+   - 调整Collider大小以匹配宝石可见区域
+
+步骤5：检查摄像机设置
+   - Main Camera必须是正交摄像机（Orthographic）
+   - 建议Size设置为5-6
+   - Position设置为(0, 0, -10)
+
+🎮 如何操作：
+-----------------
+1. 运行游戏（点击Play按钮）
+2. 用鼠标点击并拖动任意宝石
+3. 水平拖动 → 移动整行（循环）
+4. 垂直拖动 → 移动整列（循环）
+5. 拖动距离超过半格后才会触发移动
+6. 可以连续拖动，每次移动一格
+
+✨ 拖动机制特点：
+-----------------
+✅ 循环移动 - 边缘的宝石会从另一边回来
+✅ 方向锁定 - 一旦确定方向就不会改变
+✅ 平滑动画 - 宝石会平滑移动到目标位置
+✅ 防止误触 - 需要拖动超过0.2单位才判定方向
+✅ 移动锁定 - 宝石移动中不能进行新的操作
+✅ 可视化调试 - Scene视图中显示拖动线和选中宝石
+
+🐛 调试技巧：
+-----------------
+- 打开Console窗口查看拖动日志
+- 在Scene视图中可以看到：
+  * 绿色圆圈 = 当前选中的宝石
+  * 红色线条 = 拖动轨迹
+- 调整参数：
+  * Drag Threshold 太大 → 不容易触发
+  * Drag Threshold 太小 → 容易误触
+  * Move Threshold 太大 → 需要拖很远才移动
+  * Move Threshold 太小 → 轻微拖动就移动
+
+⚠️ 常见问题：
+-----------------
+Q: 点击宝石没有反应？
+A: 检查预制体是否有Collider2D组件
+
+Q: 拖动没有移动？
+A: 检查Drag Threshold和Move Threshold的值
+
+Q: 移动方向不对？
+A: 可能是拖动方向判断，尝试更明确地水平或垂直拖动
+
+Q: 宝石移动卡顿？
+A: 检查Gem.cs中的moveSpeed参数（默认10）
+
+🚀 下一步开发：
+-----------------
+✅ 已完成：网格生成
+✅ 已完成：拖动系统
+⏭️ 待开发：匹配检测（3个以上相同颜色）
+⏭️ 待开发：消除和得分系统
+⏭️ 待开发：下落和填充系统
+⏭️ 待开发：特效和音效
+
+=====================================================
+

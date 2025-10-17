@@ -13,6 +13,9 @@ public class BoardManager : MonoBehaviour
     [SerializeField] private float gemScale = 0.15f; // 宝石缩放比例
     [SerializeField] private Vector2 boardOffset = new Vector2(-3f, -3f); // 棋盘偏移（用于居中）
 
+    // 公开属性，供InputController访问
+    public float GemSpacing => gemSpacing;
+
     [Header("宝石预制体")]
     [SerializeField] private GameObject bluePrefab;
     [SerializeField] private GameObject greenPrefab;
@@ -137,6 +140,116 @@ public class BoardManager : MonoBehaviour
             return gems[row, col];
         }
         return null;
+    }
+
+    /// <summary>
+    /// 检查是否有任何宝石正在移动
+    /// </summary>
+    public bool IsAnyGemMoving()
+    {
+        for (int row = 0; row < rows; row++)
+        {
+            for (int col = 0; col < columns; col++)
+            {
+                if (gems[row, col] != null && gems[row, col].IsMoving())
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 整行向左移动（循环）
+    /// </summary>
+    public void ShiftRowLeft(int row)
+    {
+        if (row < 0 || row >= rows) return;
+
+        // 1. 保存最左边的宝石
+        Gem firstGem = gems[row, 0];
+        Vector3 targetPos = GetWorldPosition(row, columns - 1);
+
+        // 2. 其他宝石向左移动一格
+        for (int col = 0; col < columns - 1; col++)
+        {
+            gems[row, col] = gems[row, col + 1];
+            gems[row, col].MoveTo(row, col, GetWorldPosition(row, col));
+        }
+
+        // 3. 最左边的宝石循环到最右边
+        gems[row, columns - 1] = firstGem;
+        firstGem.MoveTo(row, columns - 1, targetPos);
+    }
+
+    /// <summary>
+    /// 整行向右移动（循环）
+    /// </summary>
+    public void ShiftRowRight(int row)
+    {
+        if (row < 0 || row >= rows) return;
+
+        // 1. 保存最右边的宝石
+        Gem lastGem = gems[row, columns - 1];
+        Vector3 targetPos = GetWorldPosition(row, 0);
+
+        // 2. 其他宝石向右移动一格
+        for (int col = columns - 1; col > 0; col--)
+        {
+            gems[row, col] = gems[row, col - 1];
+            gems[row, col].MoveTo(row, col, GetWorldPosition(row, col));
+        }
+
+        // 3. 最右边的宝石循环到最左边
+        gems[row, 0] = lastGem;
+        lastGem.MoveTo(row, 0, targetPos);
+    }
+
+    /// <summary>
+    /// 整列向上移动（循环）
+    /// </summary>
+    public void ShiftColumnUp(int col)
+    {
+        if (col < 0 || col >= columns) return;
+
+        // 1. 保存最上边的宝石
+        Gem topGem = gems[rows - 1, col];
+        Vector3 targetPos = GetWorldPosition(0, col);
+
+        // 2. 其他宝石向上移动一格
+        for (int row = rows - 1; row > 0; row--)
+        {
+            gems[row, col] = gems[row - 1, col];
+            gems[row, col].MoveTo(row, col, GetWorldPosition(row, col));
+        }
+
+        // 3. 最上边的宝石循环到最下边
+        gems[0, col] = topGem;
+        topGem.MoveTo(0, col, targetPos);
+    }
+
+    /// <summary>
+    /// 整列向下移动（循环）
+    /// </summary>
+    public void ShiftColumnDown(int col)
+    {
+        if (col < 0 || col >= columns) return;
+
+        // 1. 保存最下边的宝石
+        Gem bottomGem = gems[0, col];
+        Vector3 targetPos = GetWorldPosition(rows - 1, col);
+
+        // 2. 其他宝石向下移动一格
+        for (int row = 0; row < rows - 1; row++)
+        {
+            gems[row, col] = gems[row + 1, col];
+            gems[row, col].MoveTo(row, col, GetWorldPosition(row, col));
+        }
+
+        // 3. 最下边的宝石循环到最上边
+        gems[rows - 1, col] = bottomGem;
+        bottomGem.MoveTo(rows - 1, col, targetPos);
     }
 
     /// <summary>
