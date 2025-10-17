@@ -143,7 +143,7 @@ public class BoardManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 检查是否有任何宝石正在移动
+    /// 检查是否有任何宝石正在移动或有视觉偏移
     /// </summary>
     public bool IsAnyGemMoving()
     {
@@ -151,13 +151,125 @@ public class BoardManager : MonoBehaviour
         {
             for (int col = 0; col < columns; col++)
             {
-                if (gems[row, col] != null && gems[row, col].IsMoving())
+                if (gems[row, col] != null && (gems[row, col].IsMoving() || gems[row, col].HasVisualOffset()))
                 {
                     return true;
                 }
             }
         }
         return false;
+    }
+
+    /// <summary>
+    /// 应用整行视觉偏移（带影子宝石）
+    /// </summary>
+    public void ApplyRowVisualOffset(int row, float offsetX)
+    {
+        if (row < 0 || row >= rows) return;
+
+        float rowWidth = columns * gemSpacing;
+
+        for (int col = 0; col < columns; col++)
+        {
+            Gem gem = gems[row, col];
+            if (gem == null) continue;
+
+            Vector3 basePos = GetWorldPosition(row, col);
+            Vector3 offset = new Vector3(offsetX, 0, 0);
+            
+            // 原宝石应用偏移
+            gem.UpdateBasePosition(basePos);
+            gem.ApplyVisualOffset(offset);
+            
+            // 计算当前显示位置
+            Vector3 displayPos = basePos + offset;
+            
+            // 一旦开始拖动，立即在另一边创建影子（循环带效果）
+            if (offsetX > 0)
+            {
+                // 向右拖动：在左边创建影子
+                Vector3 shadowPos = displayPos - new Vector3(rowWidth, 0, 0);
+                gem.CreateOrUpdateShadow(shadowPos);
+            }
+            else if (offsetX < 0)
+            {
+                // 向左拖动：在右边创建影子
+                Vector3 shadowPos = displayPos + new Vector3(rowWidth, 0, 0);
+                gem.CreateOrUpdateShadow(shadowPos);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 应用整列视觉偏移（带影子宝石）
+    /// </summary>
+    public void ApplyColumnVisualOffset(int col, float offsetY)
+    {
+        if (col < 0 || col >= columns) return;
+
+        float columnHeight = rows * gemSpacing;
+
+        for (int row = 0; row < rows; row++)
+        {
+            Gem gem = gems[row, col];
+            if (gem == null) continue;
+
+            Vector3 basePos = GetWorldPosition(row, col);
+            Vector3 offset = new Vector3(0, offsetY, 0);
+            
+            // 原宝石应用偏移
+            gem.UpdateBasePosition(basePos);
+            gem.ApplyVisualOffset(offset);
+            
+            // 计算当前显示位置
+            Vector3 displayPos = basePos + offset;
+            
+            // 一旦开始拖动，立即在另一边创建影子（循环带效果）
+            if (offsetY > 0)
+            {
+                // 向上拖动：在下边创建影子
+                Vector3 shadowPos = displayPos - new Vector3(0, columnHeight, 0);
+                gem.CreateOrUpdateShadow(shadowPos);
+            }
+            else if (offsetY < 0)
+            {
+                // 向下拖动：在上边创建影子
+                Vector3 shadowPos = displayPos + new Vector3(0, columnHeight, 0);
+                gem.CreateOrUpdateShadow(shadowPos);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 重置整行的视觉偏移
+    /// </summary>
+    public void ResetRowVisualOffset(int row)
+    {
+        if (row < 0 || row >= rows) return;
+
+        for (int col = 0; col < columns; col++)
+        {
+            if (gems[row, col] != null)
+            {
+                gems[row, col].ResetVisualOffset();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 重置整列的视觉偏移
+    /// </summary>
+    public void ResetColumnVisualOffset(int col)
+    {
+        if (col < 0 || col >= columns) return;
+
+        for (int row = 0; row < rows; row++)
+        {
+            if (gems[row, col] != null)
+            {
+                gems[row, col].ResetVisualOffset();
+            }
+        }
     }
 
     /// <summary>

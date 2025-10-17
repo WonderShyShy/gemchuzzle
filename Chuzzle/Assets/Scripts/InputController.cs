@@ -20,8 +20,9 @@ public class InputController : MonoBehaviour
     private Gem selectedGem;
     private DragDirection dragDirection = DragDirection.None;
     
-    // 拖动偏移量（用于视觉反馈）
-    private int currentOffset = 0; // 当前已经移动了多少格
+    // 拖动偏移量
+    private float totalDragOffset = 0f; // 总拖动偏移量（像素/单位）
+    private int confirmedMoves = 0; // 已确认的移动次数
 
     void Start()
     {
@@ -90,7 +91,8 @@ public class InputController : MonoBehaviour
             selectedGem = hitGem;
             isDragging = true;
             dragDirection = DragDirection.None;
-            currentOffset = 0;
+            totalDragOffset = 0f;
+            confirmedMoves = 0;
             
             Debug.Log($"开始拖动宝石: {hitGem.name} at ({hitGem.row}, {hitGem.column})");
         }
@@ -132,32 +134,31 @@ public class InputController : MonoBehaviour
         }
         else
         {
-            // 已经确定方向，检查是否需要移动
+            // 已经确定方向，实时更新视觉偏移
             float dragDistance = 0;
             
             switch (dragDirection)
             {
                 case DragDirection.Left:
+                    dragDistance = -dragVector.x; // 左拖是负的，转为正的偏移量
+                    totalDragOffset = dragDistance;
+                    boardManager.ApplyRowVisualOffset(selectedGem.row, -dragDistance); // 应用负偏移
+                    break;
                 case DragDirection.Right:
                     dragDistance = dragVector.x;
+                    totalDragOffset = dragDistance;
+                    boardManager.ApplyRowVisualOffset(selectedGem.row, dragDistance);
                     break;
                 case DragDirection.Up:
-                case DragDirection.Down:
                     dragDistance = dragVector.y;
+                    totalDragOffset = dragDistance;
+                    boardManager.ApplyColumnVisualOffset(selectedGem.column, dragDistance);
                     break;
-            }
-
-            // 计算应该移动多少格
-            int targetOffset = Mathf.FloorToInt(Mathf.Abs(dragDistance) / boardManager.GemSpacing);
-            
-            // 如果拖动距离超过阈值，执行移动
-            if (targetOffset > currentOffset && Mathf.Abs(dragDistance) > moveThreshold)
-            {
-                PerformMove();
-                currentOffset = targetOffset;
-                
-                // 更新起始位置，为下一次移动做准备
-                startMousePos = currentMousePos;
+                case DragDirection.Down:
+                    dragDistance = -dragVector.y;
+                    totalDragOffset = dragDistance;
+                    boardManager.ApplyColumnVisualOffset(selectedGem.column, -dragDistance);
+                    break;
             }
         }
     }
@@ -167,40 +168,92 @@ public class InputController : MonoBehaviour
     /// </summary>
     private void EndDrag()
     {
-        Debug.Log($"结束拖动，方向: {dragDirection}, 移动了 {currentOffset} 格");
+        if (selectedGem == null)
+        {
+            isDragging = false;
+            return;
+        }
+
+        // 计算应该移动多少格
+        int movesToConfirm = Mathf.RoundToInt(totalDragOffset / boardManager.GemSpacing);
+        
+        Debug.Log($"结束拖动，总偏移: {totalDragOffset:F2}, 应该移动: {movesToConfirm} 格");
+
+        // 如果拖动距离足够，确认移动
+        if (movesToConfirm > 0)
+        {
+            // 执行实际的移动
+            for (int i = 0; i < movesToConfirm; i++)
+            {
+                PerformMove();
+            }
+        }
+        else
+        {
+            // 拖动距离不够，回弹
+            Debug.Log("拖动距离不足，回弹");
+            ResetVisualOffset();
+        }
         
         isDragging = false;
         selectedGem = null;
         dragDirection = DragDirection.None;
-        currentOffset = 0;
+        totalDragOffset = 0f;
+        confirmedMoves = 0;
     }
 
     /// <summary>
-    /// 执行移动
+    /// 重置视觉偏移
     /// </summary>
-    private void PerformMove()
+    private void ResetVisualOffset()
     {
         if (selectedGem == null) return;
 
         switch (dragDirection)
         {
             case DragDirection.Left:
+            case DragDirection.Right:
+                boardManager.ResetRowVisualOffset(selectedGem.row);
+                break;
+            case DragDirection.Up:
+            case DragDirection.Down:
+                boardManager.ResetColumnVisualOffset(selectedGem.column);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 执行移动（确认移动，更新逻辑位置）
+    /// </summary>
+    private void PerformMove()
+    {
+        if (selectedGem == null) return;
+
+        // 先重置视觉偏移
+        ResetVisualOffset();
+
+        // 执行实际的逻辑移动
+        switch (dragDirection)
+        {
+            case DragDirection.Left:
                 boardManager.ShiftRowLeft(selectedGem.row);
-                Debug.Log($"向左移动第 {selectedGem.row} 行");
+                Debug.Log($"确认向左移动第 {selectedGem.row} 行");
                 break;
             case DragDirection.Right:
                 boardManager.ShiftRowRight(selectedGem.row);
-                Debug.Log($"向右移动第 {selectedGem.row} 行");
+                Debug.Log($"确认向右移动第 {selectedGem.row} 行");
                 break;
             case DragDirection.Up:
                 boardManager.ShiftColumnUp(selectedGem.column);
-                Debug.Log($"向上移动第 {selectedGem.column} 列");
+                Debug.Log($"确认向上移动第 {selectedGem.column} 列");
                 break;
             case DragDirection.Down:
                 boardManager.ShiftColumnDown(selectedGem.column);
-                Debug.Log($"向下移动第 {selectedGem.column} 列");
+                Debug.Log($"确认向下移动第 {selectedGem.column} 列");
                 break;
         }
+
+        confirmedMoves++;
     }
 
     /// <summary>
