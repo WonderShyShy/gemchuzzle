@@ -1,0 +1,65 @@
+=====================================================
+🎮 Chuzzle 游戏 - 6x6网格生成系统使用说明
+=====================================================
+
+📋 已创建的脚本：
+-----------------
+1. Gem.cs - 宝石类
+   - 管理单个宝石的属性（类型、位置）
+   - 处理宝石移动动画
+
+2. BoardManager.cs - 棋盘管理器
+   - 生成6x6的游戏棋盘
+   - 管理所有宝石的引用
+   - 提供网格可视化辅助
+
+🔧 如何设置：
+-----------------
+步骤1：在Unity中打开场景（Scenes/SampleScene.unity）
+
+步骤2：创建一个空的GameObject
+   - 右键点击Hierarchy -> Create Empty
+   - 重命名为 "BoardManager"
+
+步骤3：添加BoardManager脚本
+   - 选中BoardManager对象
+   - 在Inspector中点击 "Add Component"
+   - 搜索并添加 "BoardManager" 脚本
+
+步骤4：设置预制体引用
+   在BoardManager组件的Inspector中，将预制体拖拽到对应槽位：
+   - Blue Prefab   -> 拖入 Assets/Prefob/Blue.prefab
+   - Green Prefab  -> 拖入 Assets/Prefob/Green.prefab
+   - Orange Prefab -> 拖入 Assets/Prefob/Orange.prefab
+   - Pink Prefab   -> 拖入 Assets/Prefob/Pink.prefab
+   - Red Prefab    -> 拖入 Assets/Prefob/Red.prefab
+   - White Prefab  -> 拖入 Assets/Prefob/Write.prefab (注意拼写)
+   - Yellow Prefab -> 拖入 Assets/Prefob/Yellow.prefab
+
+步骤5：调整参数（可选）
+   - Rows: 6 (行数)
+   - Columns: 6 (列数)
+   - Gem Spacing: 1.2 (宝石间距)
+   - Gem Scale: 0.15 (宝石缩放比例，可根据实际素材大小调整)
+   - Board Offset: (-3, -3) (棋盘偏移，用于居中)
+
+步骤6：运行游戏
+   - 点击Play按钮
+   - 你会看到6x6的宝石网格自动生成！
+
+📝 提示：
+-----------------
+- 在Scene视图中，你会看到黄色的网格辅助线（Gizmos）
+- 每个宝石的名称格式为：Gem_行_列_颜色
+- 所有宝石都是BoardManager的子对象，方便管理
+
+🎯 下一步开发：
+-----------------
+网格已完成！接下来可以添加：
+1. 输入控制（拖拽整行/整列）
+2. 匹配检测（3个以上相同颜色）
+3. 消除和填充系统
+4. 得分系统
+
+=====================================================
+
