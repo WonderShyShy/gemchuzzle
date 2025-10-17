@@ -13,9 +13,10 @@ public class BoardManager : MonoBehaviour
     [SerializeField] private float gemScale = 0.15f; // 宝石缩放比例
     [SerializeField] private Vector2 boardOffset = new Vector2(-3f, -3f); // 棋盘偏移（用于居中）
 
-    // 公开属性，供InputController访问
+    // 公开属性，供其他系统访问
     public float GemSpacing => gemSpacing;
     public int Columns => columns;
+    public int Rows => rows;
 
     [Header("宝石预制体")]
     [SerializeField] private GameObject bluePrefab;
@@ -31,11 +32,39 @@ public class BoardManager : MonoBehaviour
 
     // 宝石预制体字典
     private Dictionary<GemType, GameObject> gemPrefabs;
+    
+    // 匹配检测系统
+    private MatchFinder matchFinder;
 
     void Start()
     {
         InitializePrefabDictionary();
+        
+        // 初始化匹配检测系统
+        matchFinder = new MatchFinder(this);
+        
         GenerateBoard();
+        
+        // 验证开局无匹配
+        var matches = matchFinder.FindAllMatchGroups();
+        if (matches.Count > 0)
+        {
+            Debug.LogWarning($"开局发现 {matches.Count} 个匹配组！生成算法可能需要改进。");
+        }
+        else
+        {
+            Debug.Log("✅ 开局无匹配，生成成功！");
+        }
+    }
+
+    void Update()
+    {
+        // 按M键检测当前所有匹配
+        if (Input.GetKeyDown(KeyCode.M))
+        {
+            Debug.Log("=== 手动检测匹配 ===");
+            matchFinder.DebugShowAllMatches();
+        }
     }
 
     /// <summary>
@@ -66,8 +95,8 @@ public class BoardManager : MonoBehaviour
         {
             for (int col = 0; col < columns; col++)
             {
-                // 随机选择一个宝石类型
-                GemType gemType = GetRandomGemType();
+                // 使用MatchFinder获取安全的宝石类型（避免初始匹配）
+                GemType gemType = matchFinder.GetSafeTypeForGeneration(row, col);
 
                 // 计算宝石的世界坐标
                 Vector3 position = GetWorldPosition(row, col);
@@ -141,6 +170,25 @@ public class BoardManager : MonoBehaviour
             return gems[row, col];
         }
         return null;
+    }
+
+    /// <summary>
+    /// 设置指定位置的宝石（用于测试）
+    /// </summary>
+    public void SetGemForTest(int row, int col, Gem gem)
+    {
+        if (row >= 0 && row < rows && col >= 0 && col < columns)
+        {
+            gems[row, col] = gem;
+        }
+    }
+
+    /// <summary>
+    /// 获取匹配检测器（供外部使用）
+    /// </summary>
+    public MatchFinder GetMatchFinder()
+    {
+        return matchFinder;
     }
 
     /// <summary>
