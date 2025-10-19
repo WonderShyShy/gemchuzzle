@@ -196,6 +196,32 @@ public class Gem : MonoBehaviour
         // 同时销毁影子
         DestroyShadow();
     }
+    
+    /// <summary>
+    /// 冻结视觉偏移（清除偏移状态但不移动宝石）
+    /// </summary>
+    public void FreezeVisualOffset()
+    {
+        // 清除偏移状态
+        visualOffset = Vector3.zero;
+        hasVisualOffset = false;
+        isDominoAnimating = false;
+        
+        // 销毁影子
+        DestroyShadow();
+        
+        // 关键：不修改 transform.position！
+        // 宝石保持在当前的"偏移位置"
+    }
+    
+    /// <summary>
+    /// 设置基础位置（将当前位置确认为新的 basePosition）
+    /// </summary>
+    public void SetBasePosition(Vector3 newBasePosition)
+    {
+        basePosition = newBasePosition;
+        // transform.position 已经在正确位置了，不需要修改
+    }
 
     /// <summary>
     /// 开始多米诺回弹动画

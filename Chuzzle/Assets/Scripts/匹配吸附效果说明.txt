@@ -1,0 +1,353 @@
+=====================================================
+✅ 匹配吸附效果 - 有匹配不回退，直接到新位置
+=====================================================
+
+一、功能概述
+──────────────────────────────────────────────
+
+新的视觉效果：
+✅ 有匹配 → 不回退，直接移动到新位置（吸附效果）
+❌ 没有匹配 → 多米诺回弹到原位
+❌ 距离不够 → 多米诺回弹到原位
+
+
+二、完整流程对比
+──────────────────────────────────────────────
+
+【场景A：有匹配 - 不回退】
+===========================================
+
+1. 玩家拖动一行1.2格
+   gems[2, *] 的 visualOffset = 向右1.2格
+   transform.position = basePosition + visualOffset
+
+2. 松手（EndDrag）
+   movesToConfirm = Round(1.2 / 1.2) = 1格
+
+3. 检测匹配
+   WouldHaveMatchAfterMove(...)
+   → 备份数据
+   → 临时移动
+   → 检测到3个红色相连 ✅
+   → 恢复数据
+   → 返回 true
+
+4. ✅ 有匹配分支
+   Debug: "🎯 检测到三联匹配！不回退，直接移动1格"
+   
+   a) 清除视觉偏移（立即）
+      ResetVisualOffset()
+      → visualOffset = 0
+      → hasVisualOffset = false
+      → transform.position = basePosition
+      → 影子销毁
+   
+   b) 立即执行逻辑移动
+      for (int i = 0; i < 1; i++)
+          PerformMove();
+      
+      PerformMove() 中：
+      → ShiftRowRight(row)
+      → 更新 gems[row, col]
+      → 更新 gem.row/column
+      → 调用 gem.MoveTo(row, col, newPosition)
+      
+      gem.MoveTo() 中：
+      → targetPosition = newPosition
+      → isMoving = true
+      → 触发平滑移动动画（0.5～1秒）
+
+5. 视觉效果
+   拖动中：[A.][B.][C.] → 偏移1.2格
+             ↓
+   松手：  [A][B][C] → 瞬间回到basePosition
+             ↓
+   检测：  有匹配 ✅
+             ↓
+   移动：  [A][B][C] → 平滑移动到新位置（MoveTo动画）
+             ↓
+   完成：  [.A][.B][.C] → 在新位置，可以消除
+
+6. 结果
+   ✅ 没有回弹动画（不经过多米诺）
+   ✅ 直接从basePosition平滑移动到新位置
+   ✅ 视觉上更清晰：有匹配 = 确认移动
+
+
+【场景B：没有匹配 - 回退】
+===========================================
+
+1. 玩家拖动一行1.2格
+   visualOffset = 向右1.2格
+
+2. 松手
+   movesToConfirm = 1格
+
+3. 检测匹配
+   WouldHaveMatchAfterMove(...)
+   → 没有匹配 ❌
+   → 返回 false
+
+4. ❌ 没有匹配分支
+   Debug: "❌ 没有匹配，多米诺回弹到原位"
+   
+   a) 触发多米诺回弹
+      DominoBackAnimation()
+      → 影子先开始回弹
+      → 本体依次回弹
+      → visualOffset: 1.2 → 0（0.2秒）
+   
+   b) 不调用 PerformMove
+      → gems 数组保持不变
+      → gem.row/column 保持不变
+
+5. 视觉效果
+   拖动中：[A.][B.][C.] → 偏移1.2格
+             ↓
+   松手：  检测 → 没有匹配 ❌
+             ↓
+   回弹：  [A回][B回][C回] → 多米诺动画回到原位
+             ↓
+   完成：  [A][B][C] → 原位置，数据未变
+
+6. 结果
+   ✅ 有多米诺回弹动画
+   ✅ 回到原位，就像没有拖动过
+   ✅ 视觉上更清晰：没匹配 = 拒绝移动
+
+
+【场景C：距离不够 - 回退】
+===========================================
+
+1. 玩家拖动0.4格（不到半格）
+
+2. 松手
+   movesToConfirm = 0格
+
+3. 直接回弹
+   DominoBackAnimation()
+
+4. 结果
+   ✅ 多米诺回弹
+
+
+三、代码实现
+──────────────────────────────────────────────
+
+【InputController.cs - EndDrag()】
+===========================================
+
+if (movesToConfirm > 0) {
+    // 检测匹配
+    bool wouldMatch = boardManager.WouldHaveMatchAfterMove(...);
+    
+    if (wouldMatch) {
+        // ✅ 有匹配：不回退
+        Debug.Log("🎯 检测到三联匹配！不回退，直接移动");
+        
+        // 1. 清除视觉偏移
+        ResetVisualOffset();
+        // → visualOffset = 0
+        // → transform.position = basePosition
+        // → 影子销毁
+        
+        // 2. 立即执行逻辑移动
+        for (int i = 0; i < movesToConfirm; i++) {
+            PerformMove();
+        }
+        // → 更新数据层
+        // → 触发 MoveTo 动画
+    }
+    else {
+        // ❌ 没有匹配：回退
+        Debug.Log("❌ 没有匹配，多米诺回弹");
+        DominoBackAnimation();
+    }
+}
+else {
+    // 距离不够：回退
+    DominoBackAnimation();
+}
+
+
+【ResetVisualOffset()】
+===========================================
+
+private void ResetVisualOffset() {
+    switch (dragDirection) {
+        case Left:
+        case Right:
+            boardManager.ResetRowVisualOffset(selectedGem.row);
+            break;
+        case Up:
+        case Down:
+            boardManager.ResetColumnVisualOffset(selectedGem.column);
+            break;
+    }
+}
+
+BoardManager.ResetRowVisualOffset(row):
+  for (int col = 0; col < columns; col++) {
+      gem.ResetVisualOffset();
+      // → visualOffset = 0
+      // → transform.position = basePosition
+      // → 销毁影子
+  }
+
+
+【PerformMove()】
+===========================================
+
+private void PerformMove() {
+    switch (dragDirection) {
+        case Left:
+            boardManager.ShiftRowLeft(selectedGem.row);
+            break;
+        case Right:
+            boardManager.ShiftRowRight(selectedGem.row);
+            break;
+        case Up:
+            boardManager.ShiftColumnUp(selectedGem.column);
+            break;
+        case Down:
+            boardManager.ShiftColumnDown(selectedGem.column);
+            break;
+    }
+    confirmedMoves++;
+}
+
+BoardManager.ShiftRowRight(row):
+  1. 保存最右边的宝石
+  2. 其他宝石向右移动一格
+     → gems[row, col] = gems[row, col-1]
+     → gem.MoveTo(row, col, newPosition)
+  3. 最右边的循环到最左边
+     → gems[row, 0] = lastGem
+     → lastGem.MoveTo(row, 0, newPosition)
+
+
+四、时间线对比
+──────────────────────────────────────────────
+
+【有匹配 - 不回退】
+===========================================
+
+0.00秒 - 松手，检测匹配 → true ✅
+0.00秒 - 清除视觉偏移（瞬间）
+       - transform.position = basePosition
+0.00秒 - 执行逻辑移动
+       - 更新数据层
+       - 触发 MoveTo 动画
+0.00～1.0秒 - 平滑移动到新位置
+1.0秒 - 到达新位置，可以消除
+
+总耗时：~1.0秒
+
+
+【没有匹配 - 回退】
+===========================================
+
+0.00秒 - 松手，检测匹配 → false ❌
+0.00秒 - 触发多米诺回弹
+0.00～0.20秒 - 回弹动画
+0.20秒 - 回到原位
+
+总耗时：~0.2秒
+
+
+五、视觉效果对比
+──────────────────────────────────────────────
+
+┌────────────┬──────────────┬──────────────┐
+│ 情况       │ 动画效果     │ 结果         │
+├────────────┼──────────────┼──────────────┤
+│ 有匹配     │ 直接移动     │ 新位置，可消 │
+│            │ (无回弹)     │              │
+├────────────┼──────────────┼──────────────┤
+│ 没匹配(够) │ 多米诺回弹   │ 原位置       │
+├────────────┼──────────────┼──────────────┤
+│ 距离不够   │ 多米诺回弹   │ 原位置       │
+└────────────┴──────────────┴──────────────┘
+
+
+六、为什么这样更好？
+──────────────────────────────────────────────
+
+1. 视觉反馈清晰
+   ✅ 有匹配 = 直接移动 = 确认
+   ❌ 没匹配 = 回弹 = 拒绝
+
+2. 节省时间
+   有匹配时不需要经过 "回弹 → 等待 → 再移动"
+   直接从 basePosition 移动到新位置
+   总时间从 ~1.5秒 缩短到 ~1.0秒
+
+3. 符合直觉
+   玩家拖动时看到偏移
+   松手后：
+   - 有匹配 → "确认了，移动吧！"
+   - 没匹配 → "不行，回去！"
+
+4. 减少混淆
+   不会出现"明明有匹配，为什么还要先回弹？"的疑问
+
+
+七、注意事项
+──────────────────────────────────────────────
+
+1. ResetVisualOffset 的时机
+   ✅ 在有匹配时立即调用
+   → 清除 visualOffset
+   → 回到 basePosition
+   → 然后才能 MoveTo 新位置
+
+2. MoveTo 动画的起点
+   MoveTo 动画从当前 transform.position 开始
+   所以必须先 ResetVisualOffset，确保从 basePosition 出发
+
+3. 数据层同步
+   PerformMove 会立即更新数据层
+   MoveTo 动画是表现层
+   两者同时进行，动画完成时自动同步
+
+4. 影子宝石的处理
+   ResetVisualOffset 会销毁影子
+   确保不会有残留的影子宝石
+
+
+八、测试要点
+──────────────────────────────────────────────
+
+1. 拖动形成三联匹配
+   → 应该看到：直接移动到新位置，无回弹 ✅
+
+2. 拖动但没有匹配
+   → 应该看到：多米诺回弹到原位 ✅
+
+3. 拖动距离不够
+   → 应该看到：多米诺回弹 ✅
+
+4. 连续匹配
+   → 第一次匹配 → 移动
+   → 立即再拖动形成匹配 → 移动 ✅
+
+5. 观察 Console
+   有匹配："🎯 检测到三联匹配！不回退，直接移动"
+   没匹配："❌ 没有匹配，多米诺回弹到原位"
+
+
+九、后续可优化
+──────────────────────────────────────────────
+
+如果你觉得 "清除偏移 → MoveTo" 不够流畅，
+可以改成 "从偏移位置直接吸附到新位置"：
+
+1. 不调用 ResetVisualOffset
+2. 使用自定义的 SmoothSnapTo 动画
+3. 从 basePosition + visualOffset 平滑移动到 targetPosition
+4. 动画完成时更新 basePosition 和数据层
+
+但目前的实现已经足够好了！
+
+=====================================================
+

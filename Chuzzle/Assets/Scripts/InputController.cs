@@ -191,17 +191,39 @@ public class InputController : MonoBehaviour
             
             if (wouldMatch)
             {
-                // ✅ 有匹配：多米诺回弹 + 执行移动
-                Debug.Log($"🎯 检测到三联匹配！多米诺回弹后移动 {movesToConfirm} 格");
-                DominoBackAnimation();
-                StartCoroutine(PerformMoveAfterDomino(movesToConfirm));
+                // ✅ 有匹配：让宝石"就地转正"（从偏移位置变成真实位置）
+                Debug.Log($"🎯 检测到三联匹配！宝石就地转正，移动 {movesToConfirm} 格");
+                
+                // 关键：不调用 ResetVisualOffset()！保持当前的视觉偏移
+                // 让宝石从当前的"偏移位置"直接变成"真实位置"
+                
+                // 先清除视觉偏移状态，但不移动宝石
+                if (isRow)
+                    boardManager.FreezeRowVisualOffset(rowOrCol);
+                else
+                    boardManager.FreezeColumnVisualOffset(rowOrCol);
+                
+                // 直接更新数据层（不触发MoveTo动画）
+                for (int i = 0; i < movesToConfirm; i++)
+                {
+                    PerformMoveDataOnly(rowOrCol, isRow, movePositive);
+                }
+                
+                // 更新每个宝石的 basePosition 为当前的 transform.position
+                // 这样宝石就"就地转正"了
+                if (isRow)
+                    boardManager.ConfirmRowPosition(rowOrCol);
+                else
+                    boardManager.ConfirmColumnPosition(rowOrCol);
+                
+                Debug.Log("✅ 宝石已就地转正，数据层和表现层同步");
             }
             else
             {
-                // ❌ 没有匹配：只回弹，不移动
-                Debug.Log($"❌ 没有匹配，只回弹到原位（不移动）");
+                // ❌ 没有匹配：多米诺回弹到原位
+                Debug.Log($"❌ 没有匹配，多米诺回弹到原位（不移动）");
                 DominoBackAnimation();
-                // 注意：不调用 PerformMoveAfterDomino，宝石回到原位
+                // 注意：不调用 PerformMove，宝石回到原位
             }
         }
         else
@@ -310,6 +332,35 @@ public class InputController : MonoBehaviour
         }
 
         confirmedMoves++;
+    }
+    
+    /// <summary>
+    /// 仅更新数据层的移动（用于匹配后同步数据）
+    /// </summary>
+    private void PerformMoveDataOnly(int rowOrCol, bool isRow, bool movePositive)
+    {
+        if (isRow)
+        {
+            if (movePositive)
+            {
+                boardManager.ShiftRowRightDataOnly(rowOrCol);
+            }
+            else
+            {
+                boardManager.ShiftRowLeftDataOnly(rowOrCol);
+            }
+        }
+        else
+        {
+            if (movePositive)
+            {
+                boardManager.ShiftColumnDownDataOnly(rowOrCol);
+            }
+            else
+            {
+                boardManager.ShiftColumnUpDataOnly(rowOrCol);
+            }
+        }
     }
 
     /// <summary>

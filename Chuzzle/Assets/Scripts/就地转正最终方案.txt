@@ -1,0 +1,376 @@
+=====================================================
+✅ 就地转正最终方案 - 完美实现
+=====================================================
+
+一、核心思路
+──────────────────────────────────────────────
+
+你的想法：
+"新生成的宝石进入原始行，应该代替原宝石，
+ 所以消失的是原宝石，新宝石应该在新位置"
+
+翻译成具体逻辑：
+✅ 拖动时宝石有视觉偏移
+✅ 松手检测到匹配
+✅ 宝石应该"就地转正"（停在当前偏移位置）
+✅ 循环的宝石应该平滑移动到正确位置
+
+
+二、完整流程（向右拖动1格）
+──────────────────────────────────────────────
+
+【初始状态】
+===========================================
+
+gems[row, 0] = A, position = (0, 0)
+gems[row, 1] = B, position = (1.2, 0)
+gems[row, 2] = C, position = (2.4, 0)
+gems[row, 3] = D, position = (3.6, 0)
+gems[row, 4] = E, position = (4.8, 0)
+gems[row, 5] = F, position = (6.0, 0)
+
+视觉：[A][B][C][D][E][F]
+
+
+【拖动中】
+===========================================
+
+visualOffset = (1.2, 0)
+
+视觉位置（transform.position）：
+A: (0, 0) + (1.2, 0) = (1.2, 0)
+B: (1.2, 0) + (1.2, 0) = (2.4, 0)
+C: (2.4, 0) + (1.2, 0) = (3.6, 0)
+D: (3.6, 0) + (1.2, 0) = (4.8, 0)
+E: (4.8, 0) + (1.2, 0) = (6.0, 0)
+F: (6.0, 0) + (1.2, 0) = (7.2, 0) ← 超出边界
+
+F的影子：position = (-1.2, 0) ← 在左边
+
+视觉：[F影][A.][B.][C.][D.][E.][.F]
+            ↑ 所有宝石都偏移了1.2
+
+
+【松手：检测到匹配】
+===========================================
+
+Step 1: FreezeRowVisualOffset(row)
+  
+  对每个宝石调用 FreezeVisualOffset()：
+  - visualOffset = Vector3.zero ← 清除偏移状态
+  - hasVisualOffset = false
+  - DestroyShadow() ← F的影子消失
+  - 关键：不修改 transform.position！
+  
+  结果：
+  A: transform.position = (1.2, 0) ✅ 保持不动
+  B: transform.position = (2.4, 0) ✅ 保持不动
+  C: transform.position = (3.6, 0) ✅ 保持不动
+  D: transform.position = (4.8, 0) ✅ 保持不动
+  E: transform.position = (6.0, 0) ✅ 保持不动
+  F: transform.position = (7.2, 0) ✅ 保持不动
+  F影子：销毁 ✅
+  
+  视觉：[A.][B.][C.][D.][E.][.F] ← 保持在偏移位置，影子消失
+
+
+Step 2: ShiftRowRightDataOnly(row)
+  
+  只更新数据层：
+  lastGem = gems[row, 5] = F
+  gems[row, 5] = E
+  gems[row, 4] = D
+  gems[row, 3] = C
+  gems[row, 2] = B
+  gems[row, 1] = A
+  gems[row, 0] = F ← F循环到列0
+  
+  更新 row/column：
+  F.row = row, F.column = 0
+  A.row = row, A.column = 1
+  B.row = row, B.column = 2
+  C.row = row, C.column = 3
+  D.row = row, D.column = 4
+  E.row = row, E.column = 5
+  
+  数据层状态：
+  gems[row, 0] = F
+  gems[row, 1] = A
+  gems[row, 2] = B
+  gems[row, 3] = C
+  gems[row, 4] = D
+  gems[row, 5] = E
+
+
+Step 3: ConfirmRowPosition(row)
+  
+  遍历 gems[row, *]，从当前位置移动到目标位置：
+  
+  gems[row, 0] = F:
+    当前: transform.position = (7.2, 0) ← 超出边界
+    目标: GetWorldPosition(row, 0) = (0, 0) ← 列0
+    → MoveTo(row, 0, (0, 0))
+    → 触发平滑动画：(7.2, 0) → (0, 0) ✅ 循环移动
+  
+  gems[row, 1] = A:
+    当前: transform.position = (1.2, 0)
+    目标: GetWorldPosition(row, 1) = (1.2, 0) ← 列1
+    → MoveTo(row, 1, (1.2, 0))
+    → 已经在目标位置！几乎不动 ✅
+  
+  gems[row, 2] = B:
+    当前: transform.position = (2.4, 0)
+    目标: GetWorldPosition(row, 2) = (2.4, 0)
+    → 已经在目标位置！几乎不动 ✅
+  
+  gems[row, 3] = C:
+    当前: (3.6, 0) → 目标: (3.6, 0) ✅ 不动
+  
+  gems[row, 4] = D:
+    当前: (4.8, 0) → 目标: (4.8, 0) ✅ 不动
+  
+  gems[row, 5] = E:
+    当前: (6.0, 0) → 目标: (6.0, 0) ✅ 不动
+
+
+【最终结果】
+===========================================
+
+视觉效果：
+- A、B、C、D、E "就地转正"（已经在正确位置）✅
+- F 从右边界外平滑移动到左边 ✅
+- 没有回弹动画 ✅
+- 视觉连贯 ✅
+
+数据层：
+gems[row, 0] = F ✅
+gems[row, 1] = A ✅
+gems[row, 2] = B ✅
+gems[row, 3] = C ✅
+gems[row, 4] = D ✅
+gems[row, 5] = E ✅
+
+表现层：
+F: transform.position 正在从 (7.2, 0) → (0, 0)
+A: transform.position = (1.2, 0) ← 已经在列1的位置
+B: transform.position = (2.4, 0) ← 已经在列2的位置
+C: transform.position = (3.6, 0) ← 已经在列3的位置
+D: transform.position = (4.8, 0) ← 已经在列4的位置
+E: transform.position = (6.0, 0) ← 已经在列5的位置
+
+
+三、关键代码实现
+──────────────────────────────────────────────
+
+【InputController.cs - EndDrag】
+===========================================
+
+if (wouldMatch) {
+    // Step 1: 冻结视觉偏移（清除状态但不移动宝石）
+    if (isRow)
+        boardManager.FreezeRowVisualOffset(rowOrCol);
+    else
+        boardManager.FreezeColumnVisualOffset(rowOrCol);
+    
+    // Step 2: 更新数据层（只改数据，不触发动画）
+    for (int i = 0; i < movesToConfirm; i++)
+        PerformMoveDataOnly(rowOrCol, isRow, movePositive);
+    
+    // Step 3: 确认位置（从当前位置移动到目标位置）
+    if (isRow)
+        boardManager.ConfirmRowPosition(rowOrCol);
+    else
+        boardManager.ConfirmColumnPosition(rowOrCol);
+}
+
+
+【Gem.cs - FreezeVisualOffset】
+===========================================
+
+public void FreezeVisualOffset()
+{
+    // 清除偏移状态
+    visualOffset = Vector3.zero;
+    hasVisualOffset = false;
+    isDominoAnimating = false;
+    
+    // 销毁影子
+    DestroyShadow();
+    
+    // 关键：不修改 transform.position！
+    // 宝石保持在当前的"偏移位置"
+}
+
+
+【BoardManager.cs - ConfirmRowPosition】
+===========================================
+
+public void ConfirmRowPosition(int row)
+{
+    for (int col = 0; col < columns; col++)
+    {
+        if (gems[row, col] != null)
+        {
+            // 计算目标位置（新的逻辑位置）
+            Vector3 targetPos = GetWorldPosition(row, col);
+            
+            // 从当前位置平滑移动到目标位置
+            // 如果已经在目标位置，MoveTo会很快完成
+            // 如果是循环的宝石，会有平滑动画
+            gems[row, col].MoveTo(row, col, targetPos);
+        }
+    }
+}
+
+
+【Gem.cs - MoveTo】
+===========================================
+
+public void MoveTo(int newRow, int newCol, Vector3 newPosition)
+{
+    row = newRow;
+    column = newCol;
+    targetPosition = newPosition;
+    isMoving = true;
+    
+    // 在 Update() 中平滑移动
+}
+
+Gem.Update():
+  if (isMoving) {
+      transform.position = Lerp(transform.position, targetPosition, ...);
+      if (距离足够近) {
+          transform.position = targetPosition;
+          basePosition = targetPosition; ← 到达后更新 basePosition
+          isMoving = false;
+      }
+  }
+
+
+四、视觉效果对比
+──────────────────────────────────────────────
+
+【旧方案：ResetVisualOffset + ShiftRow】
+===========================================
+
+0.00秒 - 松手
+0.00秒 - ResetVisualOffset()
+       - 所有宝石瞬间回到 basePosition
+       - 视觉：[A][B][C][D][E][F] ← 闪回原位
+0.00秒 - ShiftRowRight()
+       - 触发 MoveTo 动画
+0.00～1.0秒 - 宝石移动到新位置
+       - 视觉：[.A][.B][.C][.D][.E][.F] ← 又移动过去
+
+问题：
+❌ 闪一下（先回去再过来）
+❌ 两次移动
+❌ 视觉不连贯
+
+
+【新方案：FreezeVisualOffset + ConfirmRowPosition】
+===========================================
+
+0.00秒 - 松手
+0.00秒 - FreezeVisualOffset()
+       - 清除偏移状态，销毁影子
+       - 宝石保持在当前位置
+       - 视觉：[A.][B.][C.][D.][E.][.F] ← 不动
+0.00秒 - 更新数据层（ShiftRowRightDataOnly）
+       - gems 数组更新
+       - row/column 更新
+0.00秒 - ConfirmRowPosition()
+       - A～E：已经在目标位置，几乎不动 ✅
+       - F：从 (7.2, 0) → (0, 0) ✅
+0.00～0.5秒 - F平滑移动到左边
+       - 视觉：[F←][A][B][C][D][E] ← 只有F在动
+
+结果：
+✅ A、B、C、D、E "就地转正"
+✅ F 平滑循环到左边
+✅ 没有闪烁
+✅ 视觉连贯
+
+
+五、时间线
+──────────────────────────────────────────────
+
+0.00秒 - 松手，检测匹配 → true ✅
+0.00秒 - FreezeVisualOffset（瞬间）
+       - 清除状态，销毁影子
+       - 宝石保持在偏移位置
+0.00秒 - 更新数据层（瞬间）
+       - gems 数组
+       - row/column
+0.00秒 - ConfirmRowPosition（触发动画）
+       - 大部分宝石：已在目标位置
+       - 循环宝石：开始移动
+0.00～0.5秒 - 循环宝石移动中
+0.5秒 - 所有宝石到达目标位置
+      - 可以开始消除了！✅
+
+
+六、优势
+──────────────────────────────────────────────
+
+1. 视觉连贯
+   ✅ 没有回弹
+   ✅ 没有闪烁
+   ✅ 大部分宝石"就地转正"
+
+2. 性能好
+   ✅ 只有循环的宝石需要移动
+   ✅ 其他宝石几乎不动（MoveTo会立即完成）
+
+3. 逻辑清晰
+   ✅ 冻结 → 更新数据 → 确认位置
+   ✅ 三步分离，职责明确
+
+4. 统一处理
+   ✅ 所有宝石用同样的逻辑（MoveTo）
+   ✅ 不需要区分"循环"和"非循环"
+
+
+七、测试要点
+──────────────────────────────────────────────
+
+1. 拖动1格形成匹配
+   → A～E应该"就地转正"（不动）✅
+   → F应该从右边平滑移动到左边 ✅
+
+2. 拖动2格形成匹配
+   → E、F都应该循环移动 ✅
+   → A～D应该"就地转正" ✅
+
+3. 拖动没有匹配
+   → 多米诺回弹到原位 ✅
+
+4. 观察影子
+   → 匹配时影子应该消失 ✅
+   → 不会有残留的影子 ✅
+
+5. Console日志
+   有匹配："🎯 检测到三联匹配！宝石就地转正"
+   "宝石(row,col)从 (x1, y1) 移动到 (x2, y2)"
+
+
+八、完美的效果
+──────────────────────────────────────────────
+
+玩家体验：
+1. 拖动宝石，看到偏移和影子 ✅
+2. 松手，影子消失 ✅
+3. 大部分宝石停在拖动位置（"就地转正"）✅
+4. 循环的宝石平滑移动到边界内 ✅
+5. 感觉流畅，视觉连贯 ✅
+
+技术实现：
+1. 冻结视觉偏移（清除状态但不移动）✅
+2. 更新数据层（gems 数组和 row/column）✅
+3. 确认位置（从当前位置移动到目标位置）✅
+4. 统一的MoveTo动画处理 ✅
+
+完美！🎉
+
+=====================================================
+

@@ -1,0 +1,332 @@
+=====================================================
+✅ 宝石就地转正效果 - 匹配时停在拖动位置
+=====================================================
+
+一、核心概念
+──────────────────────────────────────────────
+
+你的想法非常正确！👍
+
+【关键理解】
+===========================================
+
+拖动循环移动时：
+- 原始行的宝石 [A][B][C][D][E][F]
+- 拖动1格后视觉上：[F影][A.][B.][C.][D.][E.][.F]
+- 此时：
+  - F宝石在右边（新位置）
+  - F的影子在左边（因为循环）
+  - A、B、C、D、E都往右偏移了
+
+如果这时候匹配成功：
+✅ F宝石应该"就地转正"（停在右边的新位置）
+✅ F的影子应该消失
+✅ A、B、C、D、E应该"就地转正"（停在偏移后的位置）
+✅ 所有宝石保持在当前的"拖动位置"，不回退
+
+数据层变化：
+gems[row, 0] = F  （F从最右边循环到最左边）
+gems[row, 1] = A  （A从列0移到列1）
+gems[row, 2] = B  （B从列1移到列2）
+...
+
+
+二、实现原理
+──────────────────────────────────────────────
+
+【传统方式（错误）】
+===========================================
+
+有匹配时：
+1. ResetVisualOffset()
+   → 所有宝石瞬间回到 basePosition
+   → [A][B][C][D][E][F] ← 回到原位
+   
+2. ShiftRowRight()
+   → 更新数据层
+   → 调用 MoveTo()
+   → 宝石再次移动到新位置
+   → [.A][.B][.C][.D][.E][.F] ← 又移动一次
+
+问题：
+❌ 宝石会"闪一下"（先回去再过来）
+❌ 视觉上不连贯
+❌ 浪费时间（两次移动）
+
+
+【新方式（就地转正）】
+===========================================
+
+有匹配时：
+1. FreezeVisualOffset()
+   → 清除 visualOffset 状态
+   → 销毁影子
+   → 但不移动宝石！
+   → [F影消失][A.][B.][C.][D.][E.][.F] ← 保持在偏移位置
+   
+2. ShiftRowRightDataOnly()
+   → 只更新数据层
+   → gems[row, 0] = F
+   → gems[row, 1] = A
+   → ...
+   → 不调用 MoveTo()，不触发动画
+   
+3. ConfirmRowPosition()
+   → 将每个宝石的 transform.position 设为新的 basePosition
+   → gem.basePosition = gem.transform.position
+   → [A][B][C][D][E][F] ← "就地转正"了！
+
+结果：
+✅ 宝石停在拖动位置
+✅ 没有回退
+✅ 没有额外动画
+✅ 视觉连贯
+
+
+三、完整流程（有匹配）
+──────────────────────────────────────────────
+
+【拖动中】
+===========================================
+
+原始状态：
+gems[row, 0] = A, position = (0, y)
+gems[row, 1] = B, position = (1.2, y)
+gems[row, 2] = C, position = (2.4, y)
+gems[row, 3] = D, position = (3.6, y)
+gems[row, 4] = E, position = (4.8, y)
+gems[row, 5] = F, position = (6.0, y)
+
+拖动1格（向右）：
+visualOffset = (1.2, 0)
+
+视觉位置（transform.position）：
+A: (0, y) + (1.2, 0) = (1.2, y)
+B: (1.2, y) + (1.2, 0) = (2.4, y)
+C: (2.4, y) + (1.2, 0) = (3.6, y)
+D: (3.6, y) + (1.2, 0) = (4.8, y)
+E: (4.8, y) + (1.2, 0) = (6.0, y)
+F: (6.0, y) + (1.2, 0) = (7.2, y) ← 超出边界
+
+F的影子：
+position = (-1.2, y) ← 在左边
+
+
+【松手检测】
+===========================================
+
+1. 计算移动格数
+   movesToConfirm = Round(1.2 / 1.2) = 1
+
+2. 预测匹配
+   WouldHaveMatchAfterMove(row, true, true, 1)
+   → 返回 true ✅
+
+3. 进入匹配分支
+
+
+【就地转正流程】
+===========================================
+
+Step 1: FreezeRowVisualOffset(row)
+  → 遍历 gems[row, *]
+  → 调用每个宝石的 FreezeVisualOffset()
+  
+  FreezeVisualOffset() 中：
+  - visualOffset = Vector3.zero
+  - hasVisualOffset = false
+  - DestroyShadow() ← F的影子消失
+  - 关键：不修改 transform.position！
+  
+  结果：
+  A: transform.position = (1.2, y) ✅ 保持
+  B: transform.position = (2.4, y) ✅ 保持
+  C: transform.position = (3.6, y) ✅ 保持
+  D: transform.position = (4.8, y) ✅ 保持
+  E: transform.position = (6.0, y) ✅ 保持
+  F: transform.position = (7.2, y) ✅ 保持
+  F的影子：销毁 ✅
+
+Step 2: ShiftRowRightDataOnly(row)
+  → 保存 lastGem = gems[row, 5] = F
+  → gems[row, 5] = gems[row, 4] = E
+  → gems[row, 4] = gems[row, 3] = D
+  → gems[row, 3] = gems[row, 2] = C
+  → gems[row, 2] = gems[row, 1] = B
+  → gems[row, 1] = gems[row, 0] = A
+  → gems[row, 0] = lastGem = F
+  
+  更新 row/column：
+  gems[row, 0] = F, F.row=row, F.column=0
+  gems[row, 1] = A, A.row=row, A.column=1
+  gems[row, 2] = B, B.row=row, B.column=2
+  gems[row, 3] = C, C.row=row, C.column=3
+  gems[row, 4] = D, D.row=row, D.column=4
+  gems[row, 5] = E, E.row=row, E.column=5
+  
+  关键：不调用 MoveTo()，不触发动画
+
+Step 3: ConfirmRowPosition(row)
+  → 遍历 gems[row, *]
+  → 调用每个宝石的 SetBasePosition(transform.position)
+  
+  SetBasePosition() 中：
+  - basePosition = transform.position
+  
+  结果：
+  gems[row, 0] = F:
+    - transform.position = (7.2, y)
+    - basePosition = (7.2, y) ← 但这个不对！
+  
+  gems[row, 1] = A:
+    - transform.position = (1.2, y)
+    - basePosition = (1.2, y) ← 但这个也不对！
+  
+  问题：basePosition 应该是新的逻辑位置！
+
+
+【修正：应该用正确的目标位置】
+===========================================
+
+Step 3（修正版）: ConfirmRowPosition(row)
+  → 遍历 gems[row, col]
+  → 计算新的逻辑位置
+  → newBasePos = GetWorldPosition(row, col)
+  → gem.SetBasePosition(newBasePos)
+  → 但 transform.position 保持不变！
+  
+  结果：
+  gems[row, 0] = F:
+    - transform.position = (7.2, y) ← 视觉位置（偏移后）
+    - basePosition = (0, y) ← 逻辑位置（列0的位置）
+    - 需要一个平滑动画从 (7.2, y) → (0, y)！
+  
+  gems[row, 1] = A:
+    - transform.position = (1.2, y) ← 已经在正确位置！
+    - basePosition = (1.2, y) ← 列1的位置
+    - 不需要动画 ✅
+
+
+四、发现的问题
+──────────────────────────────────────────────
+
+问题1：循环的宝石位置不对
+===========================================
+
+F宝石拖动后：
+- 视觉位置：(7.2, y) ← 超出边界
+- 数据层：gems[row, 0] = F ← 应该在列0
+- 列0的逻辑位置：(0, y)
+- 需要移动：(7.2, y) → (0, y)
+
+但我们的"就地转正"逻辑直接把 basePosition 设为 transform.position：
+- basePosition = (7.2, y) ← 错误！
+
+正确做法：
+- basePosition = GetWorldPosition(row, 0) = (0, y)
+- 触发动画：transform.position 从 (7.2, y) → (0, y)
+
+
+问题2：循环移动仍需要动画
+===========================================
+
+即使"就地转正"，循环的宝石仍然需要：
+1. 从边界外移动到边界内
+2. 例如 F 从 (7.2, y) → (0, y)
+
+所以完全"就地不动"是不可能的！
+
+
+五、正确的实现方案
+──────────────────────────────────────────────
+
+【方案A：部分就地转正 + 循环动画】
+===========================================
+
+有匹配时：
+1. 非循环宝石：就地转正（A、B、C、D、E）
+   - 已经在正确位置
+   - 直接确认 basePosition
+   
+2. 循环宝石：需要动画（F）
+   - transform.position = (7.2, y)
+   - basePosition = (0, y)
+   - 触发 MoveTo 动画
+
+实现：
+  ConfirmRowPosition(row) {
+      for (int col = 0; col < columns; col++) {
+          Gem gem = gems[row, col];
+          Vector3 targetPos = GetWorldPosition(row, col);
+          
+          if (gem需要循环移动) {
+              gem.MoveTo(row, col, targetPos);  // 触发动画
+          } else {
+              gem.SetBasePosition(targetPos);   // 就地确认
+          }
+      }
+  }
+
+如何判断"需要循环移动"？
+  → 如果 transform.position 和 targetPos 距离太远
+  → 说明宝石循环了
+
+
+【方案B：全部平滑过渡】
+===========================================
+
+更简单的方案：
+有匹配时，所有宝石都从当前位置平滑移动到目标位置
+
+1. FreezeVisualOffset()
+   → 清除偏移状态
+   → 宝石停在当前位置
+   
+2. 更新数据层
+   → gems 数组
+   → row/column
+   
+3. 触发 MoveTo 到目标位置
+   → 从当前 transform.position
+   → 移动到 GetWorldPosition(row, col)
+   → 距离近的（如A、B、C）几乎不动
+   → 距离远的（如F）有明显动画
+
+这样所有宝石都有一致的处理逻辑！
+
+
+六、推荐实现（方案B）
+──────────────────────────────────────────────
+
+修改 ConfirmRowPosition：
+
+public void ConfirmRowPosition(int row)
+{
+    for (int col = 0; col < columns; col++)
+    {
+        Gem gem = gems[row, col];
+        if (gem == null) continue;
+        
+        // 计算目标位置（新的逻辑位置）
+        Vector3 targetPos = GetWorldPosition(row, col);
+        
+        // 从当前位置平滑移动到目标位置
+        gem.MoveTo(row, col, targetPos);
+    }
+}
+
+结果：
+- A: (1.2, y) → (1.2, y) ← 几乎不动
+- B: (2.4, y) → (2.4, y) ← 几乎不动
+- C: (3.6, y) → (3.6, y) ← 几乎不动
+- D: (4.8, y) → (4.8, y) ← 几乎不动
+- E: (6.0, y) → (6.0, y) ← 几乎不动
+- F: (7.2, y) → (0, y) ← 有动画（循环）
+
+视觉效果：
+✅ 大部分宝石"就地转正"（因为已经在目标位置）
+✅ 循环的宝石平滑移动到正确位置
+✅ 统一的逻辑，代码简洁
+
+=====================================================
+

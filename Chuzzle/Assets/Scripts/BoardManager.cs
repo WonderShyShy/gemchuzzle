@@ -364,7 +364,7 @@ public class BoardManager : MonoBehaviour
     /// <summary>
     /// 整行向右移动（仅数据层，不触发动画）
     /// </summary>
-    private void ShiftRowRightDataOnly(int row)
+    public void ShiftRowRightDataOnly(int row)
     {
         if (row < 0 || row >= rows) return;
 
@@ -394,7 +394,7 @@ public class BoardManager : MonoBehaviour
     /// <summary>
     /// 整行向左移动（仅数据层，不触发动画）
     /// </summary>
-    private void ShiftRowLeftDataOnly(int row)
+    public void ShiftRowLeftDataOnly(int row)
     {
         if (row < 0 || row >= rows) return;
 
@@ -424,7 +424,7 @@ public class BoardManager : MonoBehaviour
     /// <summary>
     /// 整列向下移动（仅数据层，不触发动画）
     /// </summary>
-    private void ShiftColumnDownDataOnly(int col)
+    public void ShiftColumnDownDataOnly(int col)
     {
         if (col < 0 || col >= columns) return;
 
@@ -454,7 +454,7 @@ public class BoardManager : MonoBehaviour
     /// <summary>
     /// 整列向上移动（仅数据层，不触发动画）
     /// </summary>
-    private void ShiftColumnUpDataOnly(int col)
+    public void ShiftColumnUpDataOnly(int col)
     {
         if (col < 0 || col >= columns) return;
 
@@ -577,6 +577,85 @@ public class BoardManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 冻结整行的视觉偏移（清除偏移状态但不移动宝石）
+    /// </summary>
+    public void FreezeRowVisualOffset(int row)
+    {
+        if (row < 0 || row >= rows) return;
+
+        for (int col = 0; col < columns; col++)
+        {
+            if (gems[row, col] != null)
+            {
+                // 关键：清除偏移状态和影子，但不移动宝石
+                gems[row, col].FreezeVisualOffset();
+            }
+        }
+    }
+    
+    /// <summary>
+    /// 冻结整列的视觉偏移（清除偏移状态但不移动宝石）
+    /// </summary>
+    public void FreezeColumnVisualOffset(int col)
+    {
+        if (col < 0 || col >= columns) return;
+
+        for (int row = 0; row < rows; row++)
+        {
+            if (gems[row, col] != null)
+            {
+                gems[row, col].FreezeVisualOffset();
+            }
+        }
+    }
+    
+    /// <summary>
+    /// 确认整行的位置（从当前位置平滑移动到目标位置）
+    /// </summary>
+    public void ConfirmRowPosition(int row)
+    {
+        if (row < 0 || row >= rows) return;
+
+        for (int col = 0; col < columns; col++)
+        {
+            if (gems[row, col] != null)
+            {
+                // 计算目标位置（新的逻辑位置）
+                Vector3 targetPos = GetWorldPosition(row, col);
+                
+                // 从当前位置平滑移动到目标位置
+                // 如果已经在目标位置，MoveTo会很快完成
+                // 如果是循环的宝石（超出边界），会有平滑动画
+                gems[row, col].MoveTo(row, col, targetPos);
+                
+                Debug.Log($"宝石({row},{col})从 {gems[row, col].transform.position} 移动到 {targetPos}");
+            }
+        }
+    }
+    
+    /// <summary>
+    /// 确认整列的位置（从当前位置平滑移动到目标位置）
+    /// </summary>
+    public void ConfirmColumnPosition(int col)
+    {
+        if (col < 0 || col >= columns) return;
+
+        for (int row = 0; row < rows; row++)
+        {
+            if (gems[row, col] != null)
+            {
+                // 计算目标位置
+                Vector3 targetPos = GetWorldPosition(row, col);
+                
+                // 从当前位置平滑移动到目标位置
+                gems[row, col].MoveTo(row, col, targetPos);
+                
+                Debug.Log($"宝石({row},{col})从 {gems[row, col].transform.position} 移动到 {targetPos}");
+            }
+        }
+    }
+    
     /// <summary>
     /// 重置整列的视觉偏移（立即）
     /// </summary>
