@@ -179,16 +179,30 @@ public class InputController : MonoBehaviour
         
         Debug.Log($"结束拖动，总偏移: {totalDragOffset:F2}, 应该移动: {movesToConfirm} 格");
 
-        // 不管是否确认移动，都先用多米诺动画回到基础位置
-        // 然后再决定是否执行逻辑移动
+        // ✅ 新逻辑：检测三联匹配
         if (movesToConfirm > 0)
         {
-            // 拖动距离足够，先多米诺动画，然后确认移动
-            Debug.Log($"拖动距离足够，先多米诺回弹，然后移动 {movesToConfirm} 格");
-            DominoBackAnimation();
+            // 拖动距离足够，检测是否会形成匹配
+            bool isRow = (dragDirection == DragDirection.Left || dragDirection == DragDirection.Right);
+            bool movePositive = (dragDirection == DragDirection.Right || dragDirection == DragDirection.Down);
+            int rowOrCol = isRow ? selectedGem.row : selectedGem.column;
             
-            // 等多米诺动画完成后再执行逻辑移动
-            StartCoroutine(PerformMoveAfterDomino(movesToConfirm));
+            bool wouldMatch = boardManager.WouldHaveMatchAfterMove(rowOrCol, isRow, movePositive, movesToConfirm);
+            
+            if (wouldMatch)
+            {
+                // ✅ 有匹配：多米诺回弹 + 执行移动
+                Debug.Log($"🎯 检测到三联匹配！多米诺回弹后移动 {movesToConfirm} 格");
+                DominoBackAnimation();
+                StartCoroutine(PerformMoveAfterDomino(movesToConfirm));
+            }
+            else
+            {
+                // ❌ 没有匹配：只回弹，不移动
+                Debug.Log($"❌ 没有匹配，只回弹到原位（不移动）");
+                DominoBackAnimation();
+                // 注意：不调用 PerformMoveAfterDomino，宝石回到原位
+            }
         }
         else
         {

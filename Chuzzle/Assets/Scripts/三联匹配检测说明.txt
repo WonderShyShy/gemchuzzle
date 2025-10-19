@@ -1,0 +1,347 @@
+=====================================================
+✅ 三联匹配检测系统 - 完整实现
+=====================================================
+
+一、功能概述
+──────────────────────────────────────────────
+
+实现了 Chuzzle 风格的匹配检测规则：
+✅ 拖动后松手时检测是否形成3个或更多相连的宝石
+✅ 有匹配 → 多米诺回弹 + 执行移动 → 后续可消除
+✅ 没有匹配 → 只回弹，回到原位，不移动
+
+
+二、完整流程
+──────────────────────────────────────────────
+
+【场景A：拖动后形成匹配】
+===========================================
+
+1. 玩家拖动一行1.2格
+   visualOffset = 1.2格
+
+2. 松手（EndDrag）
+   movesToConfirm = Round(1.2 / 1.2) = 1格
+
+3. 检测匹配
+   WouldHaveMatchAfterMove(row, isRow=true, movePositive=true, moveCount=1)
+   
+   a) 备份当前 gems 数组
+   b) 临时执行1次 ShiftRowRightDataOnly(row)
+      （只改数据，不触发动画）
+   c) 调用 matchFinder.FindAllMatchGroups()
+      使用 Flood Fill 算法检测连通区域
+   d) 发现匹配：3个红色宝石相连 ✅
+   e) 恢复 gems 数组到备份状态
+   f) 返回 true
+
+4. 有匹配分支
+   Debug: "🎯 检测到三联匹配！"
+   
+   a) 触发多米诺回弹动画
+      DominoBackAnimation()
+      → 宝石从偏移位置回到 basePosition
+      → 影子一起回弹
+      → 持续 0.2秒
+   
+   b) 启动协程
+      StartCoroutine(PerformMoveAfterDomino(1))
+   
+   c) 等待 0.55秒（多米诺完成 + 缓冲）
+   
+   d) 执行逻辑移动
+      PerformMove()
+      → ShiftRowRight(row)
+      → 更新 gems 数组
+      → 更新 gem.row/column
+      → 调用 gem.MoveTo(newPosition)
+      → 触发移动动画（0.5～1秒）
+
+5. 结果
+   ✅ 宝石移动到新位置
+   ✅ 形成三联匹配
+   ✅ 后续可以添加消除逻辑
+
+
+【场景B：拖动后没有匹配】
+===========================================
+
+1. 玩家拖动一行1.2格
+   visualOffset = 1.2格
+
+2. 松手（EndDrag）
+   movesToConfirm = 1格
+
+3. 检测匹配
+   WouldHaveMatchAfterMove(...)
+   
+   a) 备份 gems 数组
+   b) 临时执行移动
+   c) 检测匹配
+   d) 没有匹配 ❌
+   e) 恢复 gems 数组
+   f) 返回 false
+
+4. 没有匹配分支
+   Debug: "❌ 没有匹配，只回弹到原位"
+   
+   a) 触发多米诺回弹动画
+      DominoBackAnimation()
+      → 宝石回到原位
+   
+   b) 不调用 PerformMoveAfterDomino
+      → gems 数组保持不变
+      → gem.row/column 保持不变
+
+5. 结果
+   ✅ 宝石回到原位
+   ✅ 就像没有拖动过一样
+
+
+【场景C：拖动距离不够】
+===========================================
+
+1. 玩家拖动0.4格（不足半格）
+
+2. 松手
+   movesToConfirm = Round(0.4 / 1.2) = 0格
+
+3. 直接回弹
+   Debug: "拖动距离不足，多米诺回弹"
+   DominoBackAnimation()
+
+4. 结果
+   ✅ 回到原位
+
+
+三、核心代码实现
+──────────────────────────────────────────────
+
+【BoardManager.cs - 匹配预测系统】
+===========================================
+
+1. WouldHaveMatchAfterMove(rowOrCol, isRow, movePositive, moveCount)
+   
+   功能：预测移动后是否会产生匹配
+   
+   步骤：
+   a) 备份当前状态
+      Gem[,] backup = BackupGems();
+   
+   b) 临时执行移动（只改数据）
+      for (int i = 0; i < moveCount; i++)
+          ShiftRowRightDataOnly(rowOrCol);
+   
+   c) 检测匹配
+      bool hasMatch = matchFinder.FindAllMatchGroups().Count > 0;
+   
+   d) 恢复原状态
+      RestoreGems(backup);
+   
+   e) 返回结果
+      return hasMatch;
+
+2. BackupGems()
+   
+   功能：备份整个 gems[,] 数组
+   
+   Gem[,] backup = new Gem[rows, columns];
+   for (int row = 0; row < rows; row++)
+       for (int col = 0; col < columns; col++)
+           backup[row, col] = gems[row, col];
+   return backup;
+
+3. RestoreGems(Gem[,] backup)
+   
+   功能：恢复备份的 gems[,] 数组
+   
+   for (int row = 0; row < rows; row++)
+       for (int col = 0; col < columns; col++)
+           gems[row, col] = backup[row, col];
+           gems[row, col].row = row;
+           gems[row, col].column = col;
+
+4. ShiftRowRightDataOnly(int row)
+   ShiftRowLeftDataOnly(int row)
+   ShiftColumnDownDataOnly(int col)
+   ShiftColumnUpDataOnly(int col)
+   
+   功能：只更新数据层，不触发动画
+   
+   特点：
+   ✅ 只修改 gems[,] 数组
+   ✅ 只更新 gem.row/column
+   ❌ 不调用 gem.MoveTo()
+   ❌ 不触发任何动画
+   ❌ 不修改 transform.position
+
+
+【InputController.cs - EndDrag 逻辑】
+===========================================
+
+if (movesToConfirm > 0) {
+    // 计算参数
+    bool isRow = (dragDirection == Left || dragDirection == Right);
+    bool movePositive = (dragDirection == Right || dragDirection == Down);
+    int rowOrCol = isRow ? selectedGem.row : selectedGem.column;
+    
+    // 检测匹配
+    bool wouldMatch = boardManager.WouldHaveMatchAfterMove(
+        rowOrCol, isRow, movePositive, movesToConfirm
+    );
+    
+    if (wouldMatch) {
+        // ✅ 有匹配：回弹 + 移动
+        DominoBackAnimation();
+        StartCoroutine(PerformMoveAfterDomino(movesToConfirm));
+    }
+    else {
+        // ❌ 没有匹配：只回弹
+        DominoBackAnimation();
+    }
+}
+else {
+    // 距离不够：只回弹
+    DominoBackAnimation();
+}
+
+
+【MatchFinder.cs - 匹配检测算法】
+===========================================
+
+FindAllMatchGroups()
+  → 遍历整个棋盘
+  → 对每个位置调用 FindConnectedGems(row, col)
+  → 使用 Flood Fill 算法找出所有连通的同色宝石
+  → 如果连通数量 >= 3，加入匹配组
+  → 返回所有匹配组
+
+特点：
+✅ 支持任意形状的匹配（L型、T型、方块、直线等）
+✅ 使用队列和哈希集合，高效快速
+✅ 检测4个方向（上下左右）的连通
+
+
+四、时间线对比
+──────────────────────────────────────────────
+
+【有匹配的情况】
+===========================================
+
+0.00秒 - 松手，开始检测
+       - 备份数据
+       - 临时移动
+       - 检测匹配 → true ✅
+       - 恢复数据
+
+0.00秒 - 触发多米诺回弹
+       - visualOffset: 1.2 → 0
+       - 影子一起回弹
+
+0.20秒 - 多米诺动画完成
+       - transform.position = basePosition
+       - 影子销毁
+
+0.55秒 - 协程到达
+       - 调用 PerformMove()
+       - 更新 gems 数组
+       - 更新 gem.row/column
+       - 触发 MoveTo 动画
+
+1.0秒+ - MoveTo 动画完成
+       - transform.position = targetPosition
+       - basePosition = targetPosition
+       - 可以进行消除了！
+
+
+【没有匹配的情况】
+===========================================
+
+0.00秒 - 松手，开始检测
+       - 备份数据
+       - 临时移动
+       - 检测匹配 → false ❌
+       - 恢复数据
+
+0.00秒 - 触发多米诺回弹
+       - visualOffset: 1.2 → 0
+
+0.20秒 - 多米诺动画完成
+       - transform.position = basePosition
+       - gems 数组未变
+       - 回到原位！✅
+
+
+五、关键特点
+──────────────────────────────────────────────
+
+✅ 预测性检测
+   在真正移动之前就知道结果
+   不会出现"移动了才发现没匹配"的情况
+
+✅ 无副作用
+   检测过程使用备份/恢复机制
+   不会影响当前游戏状态
+
+✅ 数据层和表现层分离
+   ShiftRowRightDataOnly: 只改数据
+   ShiftRowRight: 数据 + 动画
+   清晰明确，不会混淆
+
+✅ 统一的多米诺动画
+   不管有没有匹配，都有回弹效果
+   视觉连贯
+
+✅ 符合 Chuzzle 规则
+   有匹配才能移动
+   没匹配回到原位
+
+
+六、测试要点
+──────────────────────────────────────────────
+
+1. 拖动形成三联匹配
+   → 应该回弹后移动 ✅
+
+2. 拖动形成四联、五联匹配
+   → 应该回弹后移动 ✅
+
+3. 拖动但没有形成匹配
+   → 应该只回弹，不移动 ✅
+
+4. 拖动距离不够（小于半格）
+   → 应该回弹 ✅
+
+5. 拖动多格（例如2格）形成匹配
+   → 应该移动2格 ✅
+
+6. 按M键查看当前所有匹配
+   → 应该在Console显示 ✅
+
+
+七、后续扩展
+──────────────────────────────────────────────
+
+现在基础已经完成，后续可以添加：
+
+1. 消除动画
+   在 PerformMoveAfterDomino 完成后
+   检测匹配 → 播放消除动画 → 销毁宝石
+
+2. 下落填充
+   消除后空位 → 上方宝石下落 → 生成新宝石
+
+3. 连锁反应
+   下落后再次检测匹配 → 继续消除 → 得分加倍
+
+4. 特效
+   匹配时高亮显示
+   消除时粒子效果
+
+5. 音效
+   拖动音效
+   匹配音效
+   消除音效
+
+=====================================================
+

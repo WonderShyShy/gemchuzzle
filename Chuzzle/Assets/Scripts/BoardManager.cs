@@ -279,6 +279,208 @@ public class BoardManager : MonoBehaviour
         }
     }
 
+    // ==================== 匹配预测系统 ====================
+    
+    /// <summary>
+    /// 预测移动后是否会产生匹配（不实际修改棋盘）
+    /// </summary>
+    /// <param name="rowOrCol">要移动的行或列</param>
+    /// <param name="isRow">是否是行（false表示列）</param>
+    /// <param name="movePositive">移动方向（行：true=右，false=左；列：true=下，false=上）</param>
+    /// <param name="moveCount">移动格数</param>
+    /// <returns>是否会产生匹配</returns>
+    public bool WouldHaveMatchAfterMove(int rowOrCol, bool isRow, bool movePositive, int moveCount)
+    {
+        // 1. 备份当前状态
+        Gem[,] backup = BackupGems();
+        
+        // 2. 临时执行移动（只改数据，不触发动画）
+        for (int i = 0; i < moveCount; i++)
+        {
+            if (isRow)
+            {
+                if (movePositive)
+                    ShiftRowRightDataOnly(rowOrCol);
+                else
+                    ShiftRowLeftDataOnly(rowOrCol);
+            }
+            else
+            {
+                if (movePositive)
+                    ShiftColumnDownDataOnly(rowOrCol);
+                else
+                    ShiftColumnUpDataOnly(rowOrCol);
+            }
+        }
+        
+        // 3. 检测是否有匹配
+        bool hasMatch = matchFinder.FindAllMatchGroups().Count > 0;
+        
+        // 4. 恢复原状态
+        RestoreGems(backup);
+        
+        return hasMatch;
+    }
+    
+    /// <summary>
+    /// 备份当前的宝石数组状态
+    /// </summary>
+    private Gem[,] BackupGems()
+    {
+        Gem[,] backup = new Gem[rows, columns];
+        
+        for (int row = 0; row < rows; row++)
+        {
+            for (int col = 0; col < columns; col++)
+            {
+                backup[row, col] = gems[row, col];
+            }
+        }
+        
+        return backup;
+    }
+    
+    /// <summary>
+    /// 恢复备份的宝石数组状态
+    /// </summary>
+    private void RestoreGems(Gem[,] backup)
+    {
+        for (int row = 0; row < rows; row++)
+        {
+            for (int col = 0; col < columns; col++)
+            {
+                gems[row, col] = backup[row, col];
+                
+                // 恢复每个宝石的行列信息
+                if (gems[row, col] != null)
+                {
+                    gems[row, col].row = row;
+                    gems[row, col].column = col;
+                }
+            }
+        }
+    }
+    
+    /// <summary>
+    /// 整行向右移动（仅数据层，不触发动画）
+    /// </summary>
+    private void ShiftRowRightDataOnly(int row)
+    {
+        if (row < 0 || row >= rows) return;
+
+        // 保存最右边的宝石
+        Gem lastGem = gems[row, columns - 1];
+
+        // 所有宝石向右移动一格（只改数据）
+        for (int col = columns - 1; col > 0; col--)
+        {
+            gems[row, col] = gems[row, col - 1];
+            if (gems[row, col] != null)
+            {
+                gems[row, col].row = row;
+                gems[row, col].column = col;
+            }
+        }
+
+        // 最右边的放到最左边
+        gems[row, 0] = lastGem;
+        if (lastGem != null)
+        {
+            lastGem.row = row;
+            lastGem.column = 0;
+        }
+    }
+
+    /// <summary>
+    /// 整行向左移动（仅数据层，不触发动画）
+    /// </summary>
+    private void ShiftRowLeftDataOnly(int row)
+    {
+        if (row < 0 || row >= rows) return;
+
+        // 保存最左边的宝石
+        Gem firstGem = gems[row, 0];
+
+        // 所有宝石向左移动一格（只改数据）
+        for (int col = 0; col < columns - 1; col++)
+        {
+            gems[row, col] = gems[row, col + 1];
+            if (gems[row, col] != null)
+            {
+                gems[row, col].row = row;
+                gems[row, col].column = col;
+            }
+        }
+
+        // 最左边的放到最右边
+        gems[row, columns - 1] = firstGem;
+        if (firstGem != null)
+        {
+            firstGem.row = row;
+            firstGem.column = columns - 1;
+        }
+    }
+
+    /// <summary>
+    /// 整列向下移动（仅数据层，不触发动画）
+    /// </summary>
+    private void ShiftColumnDownDataOnly(int col)
+    {
+        if (col < 0 || col >= columns) return;
+
+        // 保存最下边的宝石
+        Gem bottomGem = gems[0, col];
+
+        // 所有宝石向下移动一格（只改数据）
+        for (int row = 0; row < rows - 1; row++)
+        {
+            gems[row, col] = gems[row + 1, col];
+            if (gems[row, col] != null)
+            {
+                gems[row, col].row = row;
+                gems[row, col].column = col;
+            }
+        }
+
+        // 最下边的放到最上边
+        gems[rows - 1, col] = bottomGem;
+        if (bottomGem != null)
+        {
+            bottomGem.row = rows - 1;
+            bottomGem.column = col;
+        }
+    }
+
+    /// <summary>
+    /// 整列向上移动（仅数据层，不触发动画）
+    /// </summary>
+    private void ShiftColumnUpDataOnly(int col)
+    {
+        if (col < 0 || col >= columns) return;
+
+        // 保存最上边的宝石
+        Gem topGem = gems[rows - 1, col];
+
+        // 所有宝石向上移动一格（只改数据）
+        for (int row = rows - 1; row > 0; row--)
+        {
+            gems[row, col] = gems[row - 1, col];
+            if (gems[row, col] != null)
+            {
+                gems[row, col].row = row;
+                gems[row, col].column = col;
+            }
+        }
+
+        // 最上边的放到最下边
+        gems[0, col] = topGem;
+        if (topGem != null)
+        {
+            topGem.row = 0;
+            topGem.column = col;
+        }
+    }
+    
     /// <summary>
     /// 应用整行视觉偏移（带影子宝石）
     /// </summary>
