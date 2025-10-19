@@ -190,3 +190,4 @@ totalDuration = (columns - 1) * delayIncrement + dominoDuration + buffer
 不管拖多远，总能看到多米诺回弹效果！✨
 =====================================================
 
+
