@@ -179,59 +179,10 @@ public class InputController : MonoBehaviour
         
         Debug.Log($"结束拖动，总偏移: {totalDragOffset:F2}, 应该移动: {movesToConfirm} 格");
 
-        // ✅ 新逻辑：检测三联匹配
-        if (movesToConfirm > 0)
-        {
-            // 拖动距离足够，检测是否会形成匹配
-            bool isRow = (dragDirection == DragDirection.Left || dragDirection == DragDirection.Right);
-            bool movePositive = (dragDirection == DragDirection.Right || dragDirection == DragDirection.Down);
-            int rowOrCol = isRow ? selectedGem.row : selectedGem.column;
-            
-            bool wouldMatch = boardManager.WouldHaveMatchAfterMove(rowOrCol, isRow, movePositive, movesToConfirm);
-            
-            if (wouldMatch)
-            {
-                // ✅ 有匹配：让宝石"就地转正"（从偏移位置变成真实位置）
-                Debug.Log($"🎯 检测到三联匹配！宝石就地转正，移动 {movesToConfirm} 格");
-                
-                // 关键：不调用 ResetVisualOffset()！保持当前的视觉偏移
-                // 让宝石从当前的"偏移位置"直接变成"真实位置"
-                
-                // 先清除视觉偏移状态，但不移动宝石
-                if (isRow)
-                    boardManager.FreezeRowVisualOffset(rowOrCol);
-                else
-                    boardManager.FreezeColumnVisualOffset(rowOrCol);
-                
-                // 直接更新数据层（不触发MoveTo动画）
-                for (int i = 0; i < movesToConfirm; i++)
-                {
-                    PerformMoveDataOnly(rowOrCol, isRow, movePositive);
-                }
-                
-                // 更新每个宝石的 basePosition 为当前的 transform.position
-                // 这样宝石就"就地转正"了
-                if (isRow)
-                    boardManager.ConfirmRowPosition(rowOrCol);
-                else
-                    boardManager.ConfirmColumnPosition(rowOrCol);
-                
-                Debug.Log("✅ 宝石已就地转正，数据层和表现层同步");
-            }
-            else
-            {
-                // ❌ 没有匹配：多米诺回弹到原位
-                Debug.Log($"❌ 没有匹配，多米诺回弹到原位（不移动）");
-                DominoBackAnimation();
-                // 注意：不调用 PerformMove，宝石回到原位
-            }
-        }
-        else
-        {
-            // 拖动距离不够，只做多米诺回弹
-            Debug.Log("拖动距离不足，多米诺回弹");
-            DominoBackAnimation();
-        }
+        // ❌ 匹配检测功能已禁用
+        // 无论如何都执行多米诺回弹
+        Debug.Log("多米诺回弹到原位（匹配检测已禁用）");
+        DominoBackAnimation();
         
         isDragging = false;
         selectedGem = null;
